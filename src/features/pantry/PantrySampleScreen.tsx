@@ -19,10 +19,17 @@ export function PantrySampleScreen() {
   const [showExamples, setShowExamples] = useState(true);
   const [groceries, setGroceries] = useState<{ id: string; name: string }[]>([]);
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [foodName, setFoodName] = useState('');
   const t = useMessages();
   const { colors } = useTheme();
   const buttonLabel = t(showExamples ? 'hideExamples' : 'showExamples');
 
+  function handleSave() {
+    setGroceries((current) => [...current, { id: Date.now().toString(), name: foodName }]);
+    setFoodName('');
+    setIsFormVisible(false);
+  }
+  
   function renderItem({ item }: ListRenderItemInfo<SampleFood>) {
     return (
       <Surface
@@ -61,11 +68,18 @@ export function PantrySampleScreen() {
               <ButtonText>+ Add food</ButtonText>
             </Button>
             {isFormVisible && (
-            <TextInput
-              placeholder="Food name"
-              style={styles.input}
-            />
-          )}
+              <View>
+                <TextInput
+                  placeholder="Food name"
+                  style={styles.input}
+                  value={foodName}
+                  onChangeText={setFoodName}
+                />
+                <Button onPress={handleSave}>
+                  <ButtonText>Save</ButtonText>
+                </Button>
+              </View>
+            )}
             <AppText accessibilityRole="header" style={styles.sectionTitle}>
               {t('sampleHeading')}
             </AppText>
