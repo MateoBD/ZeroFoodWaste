@@ -1,17 +1,5 @@
-import { Text, View, StyleSheet } from "react-native";
+import { PantrySampleScreen } from '@/features/pantry/PantrySampleScreen';
 
-export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>Edit src/app/index.tsx to edit this screen.</Text>
-    </View>
-  );
+export default function HomeRoute() {
+  return <PantrySampleScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
