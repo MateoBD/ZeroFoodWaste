@@ -9,23 +9,19 @@ import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
-import { sampleFoods, type SampleFood } from './sampleFoods';
-
-type PantryItem = SampleFood | { id: string; name: string };
+type PantryItem = { id: string; name: string };
 
 function keyExtractor(item: PantryItem) {
   return item.id;
 }
 
 export function PantrySampleScreen() {
-  const [showExamples, setShowExamples] = useState(true);
   const [groceries, setGroceries] = useState<{ id: string; name: string }[]>([]);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [foodName, setFoodName] = useState('');
   const t = useMessages();
   const { colors } = useTheme();
-  const buttonLabel = t(showExamples ? 'hideExamples' : 'showExamples');
-
+  
   function handleSave() {
     setGroceries((current) => [...current, { id: Date.now().toString(), name: foodName }]);
     setFoodName('');
@@ -34,14 +30,9 @@ export function PantrySampleScreen() {
 
   function renderItem({ item }: ListRenderItemInfo<PantryItem>) {
     return (
-      <Surface
-        style={styles.row}
-        accessible
-        accessibilityLabel={'nameKey' in item ? `${t('exampleTag')}: ${t(item.nameKey)}` : item.name}
-      >
+      <Surface style={styles.row} accessible accessibilityLabel={item.name}>
         <View style={styles.rowText}>
-        <AppText style={styles.foodName}>{'nameKey' in item ? t(item.nameKey) : item.name}</AppText>
-          <AppText variant="muted">{t('exampleTag')}</AppText>
+          <AppText style={styles.foodName}>{item.name}</AppText>
         </View>
       </Surface>
     );
@@ -50,7 +41,7 @@ export function PantrySampleScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlashList
-        data={showExamples ? [...sampleFoods, ...groceries] : groceries}
+        data={groceries}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentInsetAdjustmentBehavior="automatic"
@@ -58,14 +49,6 @@ export function PantrySampleScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <AppText variant="title" accessibilityRole="header">{t('screenTitle')}</AppText>
-            <AppText variant="muted">{t('sampleNotice')}</AppText>
-            <Button
-              onPress={() => setShowExamples((value) => !value)}
-              accessibilityLabel={buttonLabel}
-              accessibilityState={{ expanded: showExamples }}
-            >
-              <ButtonText>{buttonLabel}</ButtonText>
-            </Button>
             <Button onPress={() => setIsFormVisible((value) => !value)}>
               <ButtonText>+ Add food</ButtonText>
             </Button>
@@ -82,12 +65,9 @@ export function PantrySampleScreen() {
                 </Button>
               </View>
             )}
-            <AppText accessibilityRole="header" style={styles.sectionTitle}>
-              {t('sampleHeading')}
-            </AppText>
           </View>
         }
-        ListEmptyComponent={<AppText variant="muted">{t('emptyExamples')}</AppText>}
+        ListEmptyComponent={<AppText variant="muted">Your pantry is empty</AppText>}
         ItemSeparatorComponent={ItemSeparator}
       />
     </View>
