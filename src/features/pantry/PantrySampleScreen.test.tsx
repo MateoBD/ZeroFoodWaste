@@ -15,27 +15,19 @@ describe('PantrySampleScreen', () => {
     mockUseLocales.mockReturnValue([{ languageCode: 'en' }]);
   });
 
-  it('shows English examples and toggles them without persistence', async () => {
+  it('shows an empty state when there are no groceries', async () => {
     const screen = await render(<PantrySampleScreen />);
-    expect(screen.getByText('Sample pantry layout')).toBeTruthy();
-    expect(screen.getByText('Apples')).toBeTruthy();
-    expect(screen.getByText('Milk')).toBeTruthy();
-    expect(screen.getByText('Rice')).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Hide examples' }));
-    expect(screen.queryByText('Apples')).toBeNull();
-    expect(screen.getByText('Examples are hidden. Show them to preview the list.')).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Show examples' }));
-    expect(screen.getByText('Apples')).toBeTruthy();
+    expect(screen.getByText('Your pantry is empty')).toBeTruthy();
   });
 
-  it('shows Spanish labels from the device language', async () => {
-    mockUseLocales.mockReturnValue([{ languageCode: 'es' }]);
+  it('lets the user add a grocery item by name', async () => {
     const screen = await render(<PantrySampleScreen />);
-    expect(screen.getByText('Ejemplo de despensa')).toBeTruthy();
-    expect(screen.getByText('Manzanas')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Ocultar ejemplos' }));
-    expect(screen.getByText('Los ejemplos están ocultos. Muéstralos para ver la lista.')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: '+ Add food' }));
+    await fireEvent.changeText(screen.getByPlaceholderText('Food name'), 'Bread');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.queryByText('Your pantry is empty')).toBeNull();
   });
 });

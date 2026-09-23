@@ -1,6 +1,6 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
@@ -9,28 +9,30 @@ import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
-import { sampleFoods, type SampleFood } from './sampleFoods';
+type PantryItem = { id: string; name: string };
 
-function keyExtractor(item: SampleFood) {
+function keyExtractor(item: PantryItem) {
   return item.id;
 }
 
 export function PantrySampleScreen() {
-  const [showExamples, setShowExamples] = useState(true);
+  const [groceries, setGroceries] = useState<{ id: string; name: string }[]>([]);
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [foodName, setFoodName] = useState('');
   const t = useMessages();
   const { colors } = useTheme();
-  const buttonLabel = t(showExamples ? 'hideExamples' : 'showExamples');
+  
+  function handleSave() {
+    setGroceries((current) => [...current, { id: Date.now().toString(), name: foodName }]);
+    setFoodName('');
+    setIsFormVisible(false);
+  }
 
-  function renderItem({ item }: ListRenderItemInfo<SampleFood>) {
+  function renderItem({ item }: ListRenderItemInfo<PantryItem>) {
     return (
-      <Surface
-        style={styles.row}
-        accessible
-        accessibilityLabel={`${t('exampleTag')}: ${t(item.nameKey)}`}
-      >
+      <Surface style={styles.row} accessible accessibilityLabel={item.name}>
         <View style={styles.rowText}>
-          <AppText style={styles.foodName}>{t(item.nameKey)}</AppText>
-          <AppText variant="muted">{t('exampleTag')}</AppText>
+          <AppText style={styles.foodName}>{item.name}</AppText>
         </View>
       </Surface>
     );
@@ -39,7 +41,7 @@ export function PantrySampleScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlashList
-        data={showExamples ? sampleFoods : []}
+        data={groceries}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentInsetAdjustmentBehavior="automatic"
@@ -47,20 +49,25 @@ export function PantrySampleScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <AppText variant="title" accessibilityRole="header">{t('screenTitle')}</AppText>
-            <AppText variant="muted">{t('sampleNotice')}</AppText>
-            <Button
-              onPress={() => setShowExamples((value) => !value)}
-              accessibilityLabel={buttonLabel}
-              accessibilityState={{ expanded: showExamples }}
-            >
-              <ButtonText>{buttonLabel}</ButtonText>
+            <Button onPress={() => setIsFormVisible((value) => !value)}>
+              <ButtonText>+ Add food</ButtonText>
             </Button>
-            <AppText accessibilityRole="header" style={styles.sectionTitle}>
-              {t('sampleHeading')}
-            </AppText>
+            {isFormVisible && (
+              <View>
+                <TextInput
+                  placeholder="Food name"
+                  style={styles.input}
+                  value={foodName}
+                  onChangeText={setFoodName}
+                />
+                <Button onPress={handleSave}>
+                  <ButtonText>Save</ButtonText>
+                </Button>
+              </View>
+            )}
           </View>
         }
-        ListEmptyComponent={<AppText variant="muted">{t('emptyExamples')}</AppText>}
+        ListEmptyComponent={<AppText variant="muted">Your pantry is empty</AppText>}
         ItemSeparatorComponent={ItemSeparator}
       />
     </View>
@@ -80,4 +87,10 @@ const styles = StyleSheet.create({
   rowText: { gap: spacing.xs },
   foodName: { fontWeight: '600' },
   separator: { height: spacing.sm },
+  input: {
+    borderWidth: 1,
+    borderColor: '#cccccc',
+    borderRadius: 8,
+    padding: spacing.sm,
+  },
 });
