@@ -11,7 +11,9 @@ import { useTheme } from '@/theme/useTheme';
 
 import { sampleFoods, type SampleFood } from './sampleFoods';
 
-function keyExtractor(item: SampleFood) {
+type PantryItem = SampleFood | { id: string; name: string };
+
+function keyExtractor(item: PantryItem) {
   return item.id;
 }
 
@@ -29,16 +31,16 @@ export function PantrySampleScreen() {
     setFoodName('');
     setIsFormVisible(false);
   }
-  
-  function renderItem({ item }: ListRenderItemInfo<SampleFood>) {
+
+  function renderItem({ item }: ListRenderItemInfo<PantryItem>) {
     return (
       <Surface
         style={styles.row}
         accessible
-        accessibilityLabel={`${t('exampleTag')}: ${t(item.nameKey)}`}
+        accessibilityLabel={'nameKey' in item ? `${t('exampleTag')}: ${t(item.nameKey)}` : item.name}
       >
         <View style={styles.rowText}>
-          <AppText style={styles.foodName}>{t(item.nameKey)}</AppText>
+        <AppText style={styles.foodName}>{'nameKey' in item ? t(item.nameKey) : item.name}</AppText>
           <AppText variant="muted">{t('exampleTag')}</AppText>
         </View>
       </Surface>
@@ -48,7 +50,7 @@ export function PantrySampleScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlashList
-        data={showExamples ? sampleFoods : []}
+        data={showExamples ? [...sampleFoods, ...groceries] : groceries}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentInsetAdjustmentBehavior="automatic"
