@@ -43,13 +43,16 @@ Production exports check JavaScript bundles; they are not native binary builds. 
 
 To keep the repository organized and make collaboration easier, we follow a simple Git workflow.
 
-### 1. Keep `main` Stable
+### 1. Keep `main` and `dev` Protected
 
-The `main` branch should always contain a working version of the application.
+`main` is the production branch. `dev` is the integration branch where the
+team tests the product before production release.
 
-- Do not develop directly on `main`.
-- All changes should be made in separate branches.
-- Changes are merged into `main` through Pull Requests.
+- Do not push directly to `main` or `dev`.
+- Do not merge local branches directly into `main` or `dev`.
+- Every change enters through a reviewed Pull Request.
+- Task branches target `dev`; a release Pull Request promotes verified `dev`
+  into `main`.
 
 ---
 
@@ -142,14 +145,18 @@ final changes
 
 ---
 
-### 5. Pull Requests
+### 5. Pull Requests and promotion
 
-All changes to `main` must go through a **Pull Request (PR) on GitHub**.
+All changes to `dev` and `main` must go through a **Pull Request (PR) on
+GitHub**.
 
-- Never push changes directly to `main`.
-- Open a Pull Request from your branch into `main`.
+- Never push or merge directly into `main` or `dev`.
+- Open task Pull Requests from your branch into `dev`.
 - Each PR should focus on one feature, fix, or task.
 - At least **one other team member** should review and approve the PR.
+- Run the required checks and test the product on supported mobile targets.
+- After `dev` is verified for release, open a release Pull Request from `dev`
+  into `main`.
 - Resolve any conflicts before merging.
 - Make sure the application works correctly before merging.
 
@@ -159,13 +166,16 @@ Example:
 feat/add-product
        │
        ▼
-GitHub Pull Request
+GitHub Pull Request → dev
        │
        ▼
 Review + Approval
        │
        ▼
-Squash and Merge
+Integration testing on dev
+       │
+       ▼
+Release Pull Request: dev → main
        │
        ▼
      main
@@ -177,7 +187,9 @@ Squash and Merge
 
 Use **Squash and Merge** on GitHub.
 
-This combines all commits from the branch into a single clean commit on `main`.
+Use **Squash and Merge** for task Pull Requests into `dev` and for the release
+Pull Request into `main`. Direct pushes and local merges into either protected
+branch are prohibited.
 
 For example, the branch may contain:
 
@@ -193,7 +205,7 @@ After Squash and Merge:
 [add] implement product creation
 ```
 
-After the Pull Request is merged, delete the branch.
+After the Pull Request is merged, delete the task branch. Keep `dev` and `main`.
 
 ---
 
@@ -208,13 +220,17 @@ After the Pull Request is merged, delete the branch.
         ↓
 4. Push the branch to GitHub
         ↓
-5. Open a Pull Request into main
+5. Open a Pull Request into dev
         ↓
 6. Another team member reviews it
         ↓
-7. Squash and Merge on GitHub
+7. Test the integrated product on dev
         ↓
-8. Delete the branch
+8. Open a release Pull Request from dev into main
+        ↓
+9. Squash and Merge on GitHub
+        ↓
+10. Delete the task branch
 ```
 
 Example:
@@ -231,10 +247,12 @@ git commit -m "[add] create product form"
 git push -u origin feat/add-product
 
 # Then on GitHub:
-# 1. Open a Pull Request into main
+# 1. Open a Pull Request into dev
 # 2. Get at least one teammate approval
-# 3. Squash and Merge
-# 4. Delete the branch
+# 3. Test the integrated product on dev
+# 4. Open a release Pull Request from dev into main
+# 5. Get approval and squash-merge the release PR
+# 6. Delete the task branch
 ```
 
 ---
