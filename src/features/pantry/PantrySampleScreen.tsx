@@ -17,6 +17,7 @@ function keyExtractor(item: SampleFood) {
 
 export function PantrySampleScreen() {
   const [showExamples, setShowExamples] = useState(true);
+  const [groceries, setGroceries] = useState<{ id: string; name: string }[]>([]);
   const t = useMessages();
   const { colors } = useTheme();
   const buttonLabel = t(showExamples ? 'hideExamples' : 'showExamples');
@@ -54,6 +55,9 @@ export function PantrySampleScreen() {
               accessibilityState={{ expanded: showExamples }}
             >
               <ButtonText>{buttonLabel}</ButtonText>
+            </Button>
+            <Button onPress={() => console.log('Button + pressed')}>
+              <ButtonText>+ Add food</ButtonText>
             </Button>
             <AppText accessibilityRole="header" style={styles.sectionTitle}>
               {t('sampleHeading')}
