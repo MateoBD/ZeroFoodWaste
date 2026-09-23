@@ -1,6 +1,6 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
@@ -18,6 +18,7 @@ function keyExtractor(item: SampleFood) {
 export function PantrySampleScreen() {
   const [showExamples, setShowExamples] = useState(true);
   const [groceries, setGroceries] = useState<{ id: string; name: string }[]>([]);
+  const [isFormVisible, setIsFormVisible] = useState(false);
   const t = useMessages();
   const { colors } = useTheme();
   const buttonLabel = t(showExamples ? 'hideExamples' : 'showExamples');
@@ -56,9 +57,15 @@ export function PantrySampleScreen() {
             >
               <ButtonText>{buttonLabel}</ButtonText>
             </Button>
-            <Button onPress={() => console.log('Button + pressed')}>
+            <Button onPress={() => setIsFormVisible((value) => !value)}>
               <ButtonText>+ Add food</ButtonText>
             </Button>
+            {isFormVisible && (
+            <TextInput
+              placeholder="Food name"
+              style={styles.input}
+            />
+          )}
             <AppText accessibilityRole="header" style={styles.sectionTitle}>
               {t('sampleHeading')}
             </AppText>
@@ -84,4 +91,10 @@ const styles = StyleSheet.create({
   rowText: { gap: spacing.xs },
   foodName: { fontWeight: '600' },
   separator: { height: spacing.sm },
+  input: {
+    borderWidth: 1,
+    borderColor: '#cccccc',
+    borderRadius: 8,
+    padding: spacing.sm,
+  },
 });
