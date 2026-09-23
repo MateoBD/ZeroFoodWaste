@@ -23,7 +23,7 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 | `src/theme/` | Light and dark semantic color and spacing tokens. |
 | `src/i18n/` | Typed English and Spanish messages and device-locale selection. |
 | `assets/images/` | iOS and Android launcher images. |
-| `.github/workflows/` | CI checks for types, lint, tests, and both production bundles. |
+| `.github/workflows/pr-checks.yml` | Pull request and post-merge CI for types, lint, tests, and both production bundles. |
 
 Add storage behind a typed pantry repository once the team decides whether data is device-local, account-synced, or shared. Keep external product lookup and recipe providers in typed adapters beside their feature modules; recipes and statistics get their own feature folders when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
 
@@ -39,6 +39,23 @@ pnpm export:android
 
 Production exports check JavaScript bundles; they are not native binary builds. Before review, also open the screen on both mobile targets and check light/dark appearance, accessibility labels, safe areas, and the show/hide interaction. An iOS simulator requires Xcode on macOS; an Android emulator requires the Android SDK.
 
+The single workflow at `.github/workflows/pr-checks.yml` runs on Pull Requests
+targeting `dev` or `main`, and on pushes to those protected branches after a
+merge. It uses Node.js 22, pnpm 11.6.0, and `pnpm install --frozen-lockfile`,
+then runs lint, type checking, tests, and both platform bundle exports.
+
+The required status checks are `branch-policy` and `ci`. The workflow enforces
+these Pull Request source rules:
+
+- PRs into `dev` must come from a branch matching
+  `^(feat|fix|refactor|test|docs|chore)/[a-z0-9][a-z0-9-]*$`.
+- PRs into `main` must come from `dev` exactly.
+- A task branch cannot skip `dev` by opening a PR directly into `main`.
+
+CI/CD currently covers verification only. EAS builds, App Store or Play Store
+publishing, and related secrets are intentionally deferred until credentials
+and distribution decisions are defined.
+
 ## Git Workflow
 
 To keep the repository organized and make collaboration easier, we follow a simple Git workflow.
@@ -50,6 +67,8 @@ team tests the product before production release.
 
 - Do not push directly to `main` or `dev`.
 - Do not merge local branches directly into `main` or `dev`.
+- “Merge into `dev`” means merging an approved GitHub Pull Request; it does
+  not mean a local merge or direct push.
 - Every change enters through a reviewed Pull Request.
 - Task branches target `dev`; a release Pull Request promotes verified `dev`
   into `main`.
@@ -159,6 +178,20 @@ GitHub**.
   into `main`.
 - Resolve any conflicts before merging.
 - Make sure the application works correctly before merging.
+
+GitHub branch protection or Rulesets must be configured for both `dev` and
+`main` with these settings:
+
+- Require a Pull Request, at least one approval, and conversation resolution.
+- Dismiss stale approvals when new commits arrive.
+- Require the `branch-policy` and `ci` status checks and require the branch to
+  be up to date before merging.
+- Restrict branch deletion and block force pushes.
+- Do not grant bypass access to normal team members.
+
+The `branch-policy` check enforces the source-branch restrictions above. The
+exact availability of these Ruleset options depends on the repository's GitHub
+plan; configure them manually in the repository settings.
 
 Example:
 

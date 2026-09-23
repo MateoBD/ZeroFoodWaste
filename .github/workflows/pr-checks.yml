@@ -1,0 +1,80 @@
+name: PR Checks
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  branch-policy:
+    name: branch-policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate branch flow
+        shell: bash
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          echo "PR: $HEAD -> $BASE"
+
+          if [[ "$BASE" == "main" && "$HEAD" != "dev" ]]; then
+            echo "Only dev can be merged into main."
+            exit 1
+          fi
+
+          if [[ "$BASE" == "dev" && ! "$HEAD" =~ ^(feat|fix|refactor|docs|test|chore)/[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "Branches merged into dev must use an allowed prefix."
+            exit 1
+          fi
+
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Export iOS bundle
+        run: pnpm export:ios
+
+      - name: Export Android bundle
+        run: pnpm export:android
