@@ -8,33 +8,76 @@ import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 type PantryItemFormProps = {
-  onSave: (name: string) => void;
+  onSave: (name: string, expirationDate: string) => void;
 };
 
+function isValidDate(dateString: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return false;
+  }
+
+  const [yearStr, monthStr, dayStr] = dateString.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
 export function PantryItemForm({ onSave }: PantryItemFormProps) {
-  const [draft, setDraft] = useState('');
-  const [hasError, setHasError] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [expirationDateDraft, setExpirationDateDraft] = useState('');
+  const [hasNameError, setHasNameError] = useState(false);
+  const [expirationError, setExpirationError] = useState<'required' | 'invalid' | null>(null);
   const t = useMessages();
   const { colors } = useTheme();
 
-  function handleChangeText(value: string) {
-    setDraft(value);
-    if (hasError) {
-      setHasError(false);
+  function handleNameChange(value: string) {
+    setNameDraft(value);
+    if (hasNameError) {
+      setHasNameError(false);
+    }
+  }
+
+  function handleExpirationChange(value: string) {
+    setExpirationDateDraft(value);
+    if (expirationError) {
+      setExpirationError(null);
     }
   }
 
   function handleSubmit() {
-    const name = draft.trim();
+    const trimmedName = nameDraft.trim();
+    const trimmedExpiration = expirationDateDraft.trim();
+    let isFormValid = true;
 
-    if (!name) {
-      setHasError(true);
+    if (!trimmedName) {
+      setHasNameError(true);
+      isFormValid = false;
+    }
+
+    if (!trimmedExpiration) {
+      setExpirationError('required');
+      isFormValid = false;
+    } else if (!isValidDate(trimmedExpiration)) {
+      setExpirationError('invalid');
+      isFormValid = false;
+    }
+
+    if (!isFormValid) {
       return;
     }
 
-    setDraft('');
-    setHasError(false);
-    onSave(name);
+    setNameDraft('');
+    setExpirationDateDraft('');
+    setHasNameError(false);
+    setExpirationError(null);
+    onSave(trimmedName, trimmedExpiration);
   }
 
   return (
@@ -43,28 +86,61 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
       <TextInput
         accessibilityLabel={t('foodNameLabel')}
         accessibilityLabelledBy="food-name-label"
-        aria-invalid={hasError}
+        aria-invalid={hasNameError}
         autoCapitalize="sentences"
-        onChangeText={handleChangeText}
-        onSubmitEditing={handleSubmit}
+        onChangeText={handleNameChange}
         placeholder={t('foodNamePlaceholder')}
+        placeholderTextColor={colors.mutedText}
+        returnKeyType="next"
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.surface,
+            borderColor: hasNameError ? colors.errorText : colors.border,
+            color: colors.text,
+          },
+        ]}
+        value={nameDraft}
+      />
+      {hasNameError ? (
+        <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
+          {t('foodNameRequired')}
+        </AppText>
+      ) : null}
+
+      <AppText nativeID="expiration-date-label">{t('expirationDateLabel')}</AppText>
+      <TextInput
+        accessibilityLabel={t('expirationDateLabel')}
+        accessibilityLabelledBy="expiration-date-label"
+        aria-invalid={expirationError !== null}
+        autoCapitalize="none"
+        keyboardType="numbers-and-punctuation"
+        onChangeText={handleExpirationChange}
+        onSubmitEditing={handleSubmit}
+        placeholder={t('expirationDatePlaceholder')}
         placeholderTextColor={colors.mutedText}
         returnKeyType="done"
         style={[
           styles.input,
           {
             backgroundColor: colors.surface,
-            borderColor: hasError ? colors.errorText : colors.border,
+            borderColor: expirationError ? colors.errorText : colors.border,
             color: colors.text,
           },
         ]}
-        value={draft}
+        value={expirationDateDraft}
       />
-      {hasError ? (
+      {expirationError === 'required' ? (
         <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
-          {t('foodNameRequired')}
+          {t('expirationDateRequired')}
         </AppText>
       ) : null}
+      {expirationError === 'invalid' ? (
+        <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
+          {t('expirationDateInvalid')}
+        </AppText>
+      ) : null}
+
       <Button onPress={handleSubmit}>
         <ButtonText>{t('save')}</ButtonText>
       </Button>
