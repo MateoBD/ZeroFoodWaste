@@ -1,5 +1,5 @@
-import { PantrySampleScreen } from '@/features/pantry/PantrySampleScreen';
+import { PantryScreen } from '@/features/pantry/PantryScreen';
 
 export default function HomeRoute() {
-  return <PantrySampleScreen />;
+  return <PantryScreen />;
 }
