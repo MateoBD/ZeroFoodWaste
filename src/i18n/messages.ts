@@ -1,15 +1,14 @@
 export const en = {
   appTitle: 'ZeroFoodWaste',
-  screenTitle: 'Sample pantry layout',
-  sampleNotice: 'These are examples only. Nothing here is saved to your pantry.',
-  sampleHeading: 'Example foods',
-  exampleTag: 'Example',
-  showExamples: 'Show examples',
-  hideExamples: 'Hide examples',
-  emptyExamples: 'Examples are hidden. Show them to preview the list.',
-  apple: 'Apples',
-  milk: 'Milk',
-  rice: 'Rice',
+  pantryTitle: 'Session pantry',
+  sessionNotice: 'Items are kept only for this session and disappear when the app restarts.',
+  pantryEmpty: 'Your pantry is empty. Add a food to get started.',
+  foodNameLabel: 'Food name',
+  foodNamePlaceholder: 'Enter a food name',
+  addFood: 'Add food',
+  cancel: 'Cancel',
+  save: 'Save',
+  foodNameRequired: 'Enter a food name.',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -17,14 +16,13 @@ export type Messages = Record<MessageKey, string>;
 
 export const es: Messages = {
   appTitle: 'ZeroFoodWaste',
-  screenTitle: 'Ejemplo de despensa',
-  sampleNotice: 'Estos son solo ejemplos. No se guarda nada en tu despensa.',
-  sampleHeading: 'Alimentos de ejemplo',
-  exampleTag: 'Ejemplo',
-  showExamples: 'Mostrar ejemplos',
-  hideExamples: 'Ocultar ejemplos',
-  emptyExamples: 'Los ejemplos están ocultos. Muéstralos para ver la lista.',
-  apple: 'Manzanas',
-  milk: 'Leche',
-  rice: 'Arroz',
+  pantryTitle: 'Despensa de la sesión',
+  sessionNotice: 'Los alimentos se guardan solo durante esta sesión y desaparecen al reiniciar la aplicación.',
+  pantryEmpty: 'Tu despensa está vacía. Añade un alimento para empezar.',
+  foodNameLabel: 'Nombre del alimento',
+  foodNamePlaceholder: 'Introduce el nombre de un alimento',
+  addFood: 'Añadir alimento',
+  cancel: 'Cancelar',
+  save: 'Guardar',
+  foodNameRequired: 'Introduce el nombre de un alimento.',
 };

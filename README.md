@@ -1,6 +1,6 @@
 # ZeroFoodWaste
 
-ZeroFoodWaste is an Expo SDK 57 app for iOS and Android. Its planned purpose is to help households use food before it expires and reduce domestic food waste. The current screen is a **scaffold**: its three food items are examples only, and showing or hiding them changes memory state for this app session. There is no inventory, expiration logic, or persistence yet.
+ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its planned purpose is to help households use food before it expires and reduce domestic food waste. The current screen is a **session-only scaffold**: users can add food names, but those entries exist only in memory and disappear when the screen or app restarts. There is no quantity, expiration logic, sorting, editing, deletion, or persistence yet.
 
 ## Get started
 
@@ -11,14 +11,14 @@ pnpm install --frozen-lockfile
 pnpm start
 ```
 
-Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pnpm android`. Expo Go can run this scaffold; a development build may be needed when future native features are added. The app supports English and Spanish based on the device or per-app language preference, with English fallback.
+Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pnpm android`. To test locally in a browser, run `pnpm web`; Expo serves the app at the local URL printed by the CLI. Expo Go can run this scaffold; a development build may be needed when future native features are added. The app supports English and Spanish based on the device, browser, or per-app language preference, with English fallback.
 
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
 | `src/app/` | Expo Router routes and native stack layout. Route files compose screens. |
-| `src/features/pantry/` | Pantry feature UI and the display-only sample list. Future inventory domain rules and flows belong here. |
+| `src/features/pantry/` | Session-only pantry screen, form, empty state, and item rows. Future inventory domain rules and flows belong here. |
 | `src/components/ui/` | Reusable button, text, and surface primitives. |
 | `src/theme/` | Light and dark semantic color and spacing tokens. |
 | `src/i18n/` | Typed English and Spanish messages and device-locale selection. |
@@ -35,9 +35,10 @@ pnpm lint
 pnpm test
 pnpm export:ios
 pnpm export:android
+pnpm export:web
 ```
 
-Production exports check JavaScript bundles; they are not native binary builds. Before review, also open the screen on both mobile targets and check light/dark appearance, accessibility labels, safe areas, and the show/hide interaction. An iOS simulator requires Xcode on macOS; an Android emulator requires the Android SDK.
+Production exports check JavaScript bundles and the static web output; they are not native binary builds. Before review, also open the screen on both mobile targets and in a local browser and check light/dark appearance, accessibility labels and error announcements, safe-area scrolling, keyboard submission, touch targets, and the add/cancel flow. An iOS simulator requires Xcode on macOS; an Android emulator requires the Android SDK.
 
 The single workflow at `.github/workflows/pr-checks.yml` runs on Pull Requests
 targeting `dev` or `main`, and on pushes to those protected branches after a

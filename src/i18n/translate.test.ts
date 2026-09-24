@@ -1,16 +1,16 @@
 import { createTranslator } from './translate';
 
-describe('sample translations', () => {
+describe('translations', () => {
   it('renders English and Spanish messages', () => {
-    expect(createTranslator('en')('screenTitle')).toBe('Sample pantry layout');
-    expect(createTranslator('es')('screenTitle')).toBe('Ejemplo de despensa');
-    expect(createTranslator('es')('apple')).toBe('Manzanas');
+    expect(createTranslator('en')('pantryTitle')).toBe('Session pantry');
+    expect(createTranslator('es')('pantryTitle')).toBe('Despensa de la sesión');
+    expect(createTranslator('es')('addFood')).toBe('Añadir alimento');
   });
 
   it('falls back to English for unsupported languages', () => {
-    expect(createTranslator('sv')('showExamples')).toBe('Show examples');
-    expect(createTranslator(null)('emptyExamples')).toBe(
-      'Examples are hidden. Show them to preview the list.',
+    expect(createTranslator('sv')('addFood')).toBe('Add food');
+    expect(createTranslator(null)('pantryEmpty')).toBe(
+      'Your pantry is empty. Add a food to get started.',
     );
   });
 });
