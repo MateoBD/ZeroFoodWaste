@@ -24,6 +24,7 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 | `src/i18n/` | Typed English and Spanish messages and device-locale selection. |
 | `assets/images/` | iOS and Android launcher images. |
 | `.github/workflows/pr-checks.yml` | Pull request and post-merge CI for types, lint, tests, and both production bundles. |
+| `eas.json` | EAS Build profiles for installable Android previews and production builds. |
 
 Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; recipes and statistics get their own feature folders when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
 
@@ -42,6 +43,36 @@ pnpm export:web
 
 Production exports check JavaScript bundles and the static web output; they are not native binary builds. Before review, also open the screen on both mobile targets and in a local browser and check light/dark appearance, accessibility labels and error announcements, safe-area scrolling, keyboard submission, touch targets, and the add/cancel flow. An iOS simulator requires Xcode on macOS; an Android emulator requires the Android SDK.
 
+### Android APK builds
+
+The project uses EAS Build for native Android artifacts. The Android
+application ID is `com.zerofoodwaste.app`; keep it stable after release. The
+`preview` profile uses internal distribution and produces an installable APK
+for device testing. The `production` profile produces the default Android App
+Bundle (AAB) intended for Google Play.
+
+After logging in to an Expo account with `pnpm dlx eas-cli@latest login`, build
+an APK from the release branch with:
+
+```bash
+pnpm dlx eas-cli@latest build --platform android --profile preview
+```
+
+EAS provides a download URL when the cloud build completes. Open that URL on
+an Android device to install the APK, or download it and run
+`adb install path/to/the-file.apk`. Keep Android signing credentials managed by
+EAS and never commit them to the repository.
+
+For a Google Play build, use the production profile instead:
+
+```bash
+pnpm dlx eas-cli@latest build --platform android --profile production
+```
+
+An APK build is for direct installation and internal testing; it is not the
+normal Google Play submission artifact. EAS submission automation is
+intentionally not part of the current CI workflow.
+
 The single workflow at `.github/workflows/pr-checks.yml` runs on Pull Requests
 targeting `dev` or `main`, and on pushes to those protected branches after a
 merge. It uses Node.js 22, pnpm 11.6.0, and `pnpm install --frozen-lockfile`,
@@ -55,9 +86,9 @@ these Pull Request source rules:
 - PRs into `main` must come from `dev` exactly.
 - A task branch cannot skip `dev` by opening a PR directly into `main`.
 
-CI/CD currently covers verification only. EAS builds, App Store or Play Store
-publishing, and related secrets are intentionally deferred until credentials
-and distribution decisions are defined.
+CI currently covers verification only. EAS builds, App Store or Play Store
+publishing, and related secrets are outside this CI-only stage. Native builds
+are started manually with the EAS CLI using the profiles documented above.
 
 ## Git Workflow
 
