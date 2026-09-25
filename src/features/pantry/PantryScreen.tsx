@@ -1,5 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/theme/tokens';
@@ -8,20 +8,15 @@ import { useTheme } from '@/theme/useTheme';
 import { PantryEmptyState } from './PantryEmptyState';
 import { PantryHeader } from './PantryHeader';
 import { PantryItemRow } from './PantryItemRow';
+import { PantryLoadState } from './PantryLoadState';
+import type { PantryItem } from './pantryItem';
+import { usePantryItems } from './usePantryItems';
 
-// Temporary UI record for this mounted screen only. This is not the future
-// persisted pantry domain model.
-type SessionPantryItem = Readonly<{
-  expirationDate: string;
-  id: string;
-  name: string;
-}>;
-
-function keyExtractor(item: SessionPantryItem) {
+function keyExtractor(item: PantryItem) {
   return item.id;
 }
 
-function renderItem({ item }: ListRenderItemInfo<SessionPantryItem>) {
+function renderItem({ item }: ListRenderItemInfo<PantryItem>) {
   return <PantryItemRow expirationDate={item.expirationDate} name={item.name} />;
 }
 
@@ -30,9 +25,8 @@ function ItemSeparator() {
 }
 
 export function PantryScreen() {
-  const [items, setItems] = useState<SessionPantryItem[]>([]);
+  const { items, status, hasSaveError, addItem, retryLoad } = usePantryItems();
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const nextItemId = useRef(1);
   const { colors } = useTheme();
 
   function handleToggleForm() {
@@ -40,14 +34,7 @@ export function PantryScreen() {
   }
 
   function handleSave(name: string, expirationDate: string) {
-    const item: SessionPantryItem = {
-      expirationDate,
-      id: `session-item-${nextItemId.current}`,
-      name,
-    };
-
-    nextItemId.current += 1;
-    setItems((currentItems) => [...currentItems, item]);
+    addItem(name, expirationDate);
     setIsFormVisible(false);
   }
 
@@ -59,9 +46,13 @@ export function PantryScreen() {
         data={items}
         ItemSeparatorComponent={ItemSeparator}
         keyExtractor={keyExtractor}
-        ListEmptyComponent={PantryEmptyState}
+        ListEmptyComponent={
+          status === 'ready' ? PantryEmptyState : <PantryLoadState onRetry={retryLoad} status={status} />
+        }
         ListHeaderComponent={
           <PantryHeader
+            canAddItems={status === 'ready'}
+            hasSaveError={hasSaveError}
             isFormVisible={isFormVisible}
             onSave={handleSave}
             onToggleForm={handleToggleForm}

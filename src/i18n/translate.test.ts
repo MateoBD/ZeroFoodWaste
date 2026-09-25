@@ -2,8 +2,8 @@ import { createTranslator } from './translate';
 
 describe('translations', () => {
   it('renders English and Spanish messages', () => {
-    expect(createTranslator('en')('pantryTitle')).toBe('Session pantry');
-    expect(createTranslator('es')('pantryTitle')).toBe('Despensa de la sesión');
+    expect(createTranslator('en')('pantryTitle')).toBe('Your pantry');
+    expect(createTranslator('es')('pantryTitle')).toBe('Tu despensa');
     expect(createTranslator('es')('addFood')).toBe('Añadir alimento');
   });
 

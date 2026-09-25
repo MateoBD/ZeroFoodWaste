@@ -7,6 +7,7 @@
     "@babel/runtime": "^8.0.5",
     "@expo/metro-runtime": "~57.0.16",
     "@expo/ui": "~57.0.19",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
     "expo": "~57.0.24",
     "expo-constants": "~57.0.19",
