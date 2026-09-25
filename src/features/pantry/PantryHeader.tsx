@@ -9,7 +9,7 @@ import { PantryItemForm } from './PantryItemForm';
 
 type PantryHeaderProps = {
   isFormVisible: boolean;
-  onSave: (name: string) => void;
+  onSave: (name: string, expirationDate: string) => void;
   onToggleForm: () => void;
 };
 

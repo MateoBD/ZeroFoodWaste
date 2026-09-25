@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
+import { TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
 
@@ -37,6 +38,10 @@ describe('PantryScreen', () => {
     expect(
       screen.getByText('Tu despensa está vacía. Añade un alimento para empezar.'),
     ).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Añadir alimento' }));
+    expect(screen.getByLabelText('Nombre del alimento')).toBeTruthy();
+    expect(screen.getByLabelText('Fecha de caducidad')).toBeTruthy();
   });
 
   it('opens and cancels the form while discarding its draft', async () => {
@@ -46,6 +51,7 @@ describe('PantryScreen', () => {
     expect(addButton.props.accessibilityState).toEqual({ expanded: false });
     await fireEvent.press(addButton);
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2026-10-15');
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' });
     expect(cancelButton.props.accessibilityState).toEqual({ expanded: true });
@@ -53,6 +59,19 @@ describe('PantryScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
 
     expect(screen.getByLabelText('Food name').props.value).toBe('');
+    expect(screen.getByLabelText('Expiration date').props.value).toBe('');
+  });
+
+  it('moves focus from the name field to the expiration field on Next', async () => {
+    const screen = await render(<PantryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    const focusSpy = jest.mocked(TextInput.prototype.focus);
+    focusSpy.mockClear();
+    await fireEvent(screen.getByLabelText('Food name'), 'submitEditing');
+
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('rejects a whitespace-only name with an announced error', async () => {
@@ -60,6 +79,7 @@ describe('PantryScreen', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     await fireEvent.changeText(screen.getByLabelText('Food name'), '   ');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2026-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     const error = screen.getByRole('alert');
@@ -68,32 +88,72 @@ describe('PantryScreen', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
   });
 
-  it('trims a submitted name, closes the form, and resets it', async () => {
+  it('rejects a missing expiration date with an announced error', async () => {
     const screen = await render(<PantryScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
-    const input = screen.getByLabelText('Food name');
-    await fireEvent.changeText(input, '  Bread  ');
-    await fireEvent(input, 'submitEditing');
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '   ');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    const error = screen.getByRole('alert');
+    expect(error.props.accessibilityLiveRegion).toBe('assertive');
+    expect(screen.getByText('Enter an expiration date.')).toBeTruthy();
+  });
+
+  it('rejects an invalid expiration date with an announced error', async () => {
+    const screen = await render(<PantryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2026-02-31');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    const error = screen.getByRole('alert');
+    expect(error.props.accessibilityLiveRegion).toBe('assertive');
+    expect(screen.getByText('Enter a valid date (YYYY-MM-DD).')).toBeTruthy();
+  });
+
+  it('trims submitted values, displays expiration date, closes the form, and resets it', async () => {
+    const screen = await render(<PantryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    const nameInput = screen.getByLabelText('Food name');
+    const dateInput = screen.getByLabelText('Expiration date');
+    await fireEvent.changeText(nameInput, '  Bread  ');
+    await fireEvent.changeText(dateInput, '  2026-10-15  ');
+    await fireEvent(dateInput, 'submitEditing');
 
     expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.getByText('Expires: 2026-10-15')).toBeTruthy();
     expect(screen.queryByLabelText('Food name')).toBeNull();
+    expect(screen.queryByLabelText('Expiration date')).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     expect(screen.getByLabelText('Food name').props.value).toBe('');
+    expect(screen.getByLabelText('Expiration date').props.value).toBe('');
   });
 
   it('keeps multiple entries independently keyed, including duplicate names', async () => {
     const screen = await render(<PantryScreen />);
 
-    for (const name of ['Bread', 'Milk', 'Bread']) {
+    const entries = [
+      { name: 'Bread', date: '2026-10-10' },
+      { name: 'Milk', date: '2026-10-12' },
+      { name: 'Bread', date: '2026-10-20' },
+    ];
+
+    for (const entry of entries) {
       await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
-      await fireEvent.changeText(screen.getByLabelText('Food name'), name);
+      await fireEvent.changeText(screen.getByLabelText('Food name'), entry.name);
+      await fireEvent.changeText(screen.getByLabelText('Expiration date'), entry.date);
       await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     }
 
     expect(screen.getAllByText('Bread')).toHaveLength(2);
-    expect(screen.getByText('Milk')).toBeTruthy();
+    expect(screen.getByText('Expires: 2026-10-10')).toBeTruthy();
+    expect(screen.getByText('Expires: 2026-10-12')).toBeTruthy();
+    expect(screen.getByText('Expires: 2026-10-20')).toBeTruthy();
     expect(screen.queryByText('Your pantry is empty. Add a food to get started.')).toBeNull();
   });
 });

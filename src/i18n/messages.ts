@@ -5,10 +5,15 @@ export const en = {
   pantryEmpty: 'Your pantry is empty. Add a food to get started.',
   foodNameLabel: 'Food name',
   foodNamePlaceholder: 'Enter a food name',
+  expirationDateLabel: 'Expiration date',
+  expirationDatePlaceholder: 'YYYY-MM-DD',
   addFood: 'Add food',
   cancel: 'Cancel',
   save: 'Save',
   foodNameRequired: 'Enter a food name.',
+  expirationDateRequired: 'Enter an expiration date.',
+  expirationDateInvalid: 'Enter a valid date (YYYY-MM-DD).',
+  expiresLabel: 'Expires',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -21,8 +26,13 @@ export const es: Messages = {
   pantryEmpty: 'Tu despensa está vacía. Añade un alimento para empezar.',
   foodNameLabel: 'Nombre del alimento',
   foodNamePlaceholder: 'Introduce el nombre de un alimento',
+  expirationDateLabel: 'Fecha de caducidad',
+  expirationDatePlaceholder: 'AAAA-MM-DD',
   addFood: 'Añadir alimento',
   cancel: 'Cancelar',
   save: 'Guardar',
   foodNameRequired: 'Introduce el nombre de un alimento.',
+  expirationDateRequired: 'Introduce una fecha de caducidad.',
+  expirationDateInvalid: 'Introduce una fecha válida (AAAA-MM-DD).',
+  expiresLabel: 'Caduca',
 };

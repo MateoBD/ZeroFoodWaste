@@ -12,6 +12,7 @@ import { PantryItemRow } from './PantryItemRow';
 // Temporary UI record for this mounted screen only. This is not the future
 // persisted pantry domain model.
 type SessionPantryItem = Readonly<{
+  expirationDate: string;
   id: string;
   name: string;
 }>;
@@ -21,7 +22,7 @@ function keyExtractor(item: SessionPantryItem) {
 }
 
 function renderItem({ item }: ListRenderItemInfo<SessionPantryItem>) {
-  return <PantryItemRow name={item.name} />;
+  return <PantryItemRow expirationDate={item.expirationDate} name={item.name} />;
 }
 
 function ItemSeparator() {
@@ -38,8 +39,9 @@ export function PantryScreen() {
     setIsFormVisible((isVisible) => !isVisible);
   }
 
-  function handleSave(name: string) {
+  function handleSave(name: string, expirationDate: string) {
     const item: SessionPantryItem = {
+      expirationDate,
       id: `session-item-${nextItemId.current}`,
       name,
     };
