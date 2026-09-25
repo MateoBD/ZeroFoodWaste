@@ -4,8 +4,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@babel/runtime": "^8.0.5",
+    "@babel/runtime": "7.29.7",
+    "@expo/metro-runtime": "~57.0.16",
     "@expo/ui": "~57.0.19",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
     "expo": "~57.0.24",
     "expo-constants": "~57.0.19",
@@ -23,11 +25,13 @@
     "expo-web-browser": "~57.0.3",
     "i18n-js": "^4.5.3",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-web": "^0.21.2",
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
@@ -44,14 +48,17 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
     "export:ios": "expo export --platform ios",
-    "export:android": "expo export --platform android"
+    "export:android": "expo export --platform android",
+    "export:web": "expo export --platform web"
   },
   "jest": {
     "preset": "jest-expo",
+    "setupFiles": ["<rootDir>/jest.setup.js"],
     "transformIgnorePatterns": [
       "node_modules/(?!(.pnpm|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@shopify/flash-list|i18n-js|react-navigation|@react-navigation/.*))"
     ]

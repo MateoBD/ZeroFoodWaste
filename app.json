@@ -4,17 +4,21 @@
     "slug": "ZeroFoodWaste",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["ios", "android"],
+    "platforms": ["ios", "android", "web"],
     "icon": "./assets/images/icon.png",
     "scheme": "zerofoodwaste",
     "userInterfaceStyle": "automatic",
     "android": {
+      "package": "com.zerofoodwaste.app",
       "adaptiveIcon": {
         "backgroundColor": "#176B42",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
