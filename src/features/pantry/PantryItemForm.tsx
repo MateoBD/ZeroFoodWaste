@@ -6,28 +6,11 @@ import { Button, ButtonText } from '@/components/ui/Button';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import { isValidCalendarDate } from './calendarDate';
 
 type PantryItemFormProps = {
   onSave: (name: string, expirationDate: string) => void;
 };
-
-function isValidDate(dateString: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    return false;
-  }
-
-  const [yearStr, monthStr, dayStr] = dateString.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-
-  const date = new Date(year, month - 1, day);
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
-}
 
 export function PantryItemForm({ onSave }: PantryItemFormProps) {
   const [nameDraft, setNameDraft] = useState('');
@@ -65,7 +48,7 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
     if (!trimmedExpiration) {
       setExpirationError('required');
       isFormValid = false;
-    } else if (!isValidDate(trimmedExpiration)) {
+    } else if (!isValidCalendarDate(trimmedExpiration)) {
       setExpirationError('invalid');
       isFormValid = false;
     }
