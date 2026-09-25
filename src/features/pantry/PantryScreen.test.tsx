@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
+import { TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
 
@@ -59,6 +60,18 @@ describe('PantryScreen', () => {
 
     expect(screen.getByLabelText('Food name').props.value).toBe('');
     expect(screen.getByLabelText('Expiration date').props.value).toBe('');
+  });
+
+  it('moves focus from the name field to the expiration field on Next', async () => {
+    const screen = await render(<PantryScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    const focusSpy = jest.mocked(TextInput.prototype.focus);
+    focusSpy.mockClear();
+    await fireEvent(screen.getByLabelText('Food name'), 'submitEditing');
+
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('rejects a whitespace-only name with an announced error', async () => {

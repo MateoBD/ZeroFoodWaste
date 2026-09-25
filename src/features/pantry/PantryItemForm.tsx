@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -34,6 +34,7 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
   const [expirationDateDraft, setExpirationDateDraft] = useState('');
   const [hasNameError, setHasNameError] = useState(false);
   const [expirationError, setExpirationError] = useState<'required' | 'invalid' | null>(null);
+  const expirationInputRef = useRef<TextInput>(null);
   const t = useMessages();
   const { colors } = useTheme();
 
@@ -89,9 +90,11 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
         aria-invalid={hasNameError}
         autoCapitalize="sentences"
         onChangeText={handleNameChange}
+        onSubmitEditing={() => expirationInputRef.current?.focus()}
         placeholder={t('foodNamePlaceholder')}
         placeholderTextColor={colors.mutedText}
         returnKeyType="next"
+        submitBehavior="submit"
         style={[
           styles.input,
           {
@@ -119,6 +122,7 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
         onSubmitEditing={handleSubmit}
         placeholder={t('expirationDatePlaceholder')}
         placeholderTextColor={colors.mutedText}
+        ref={expirationInputRef}
         returnKeyType="done"
         style={[
           styles.input,
