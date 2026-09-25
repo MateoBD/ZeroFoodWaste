@@ -4,7 +4,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@babel/runtime": "^8.0.5",
+    "@babel/runtime": "7.29.7",
     "@expo/metro-runtime": "~57.0.16",
     "@expo/ui": "~57.0.19",
     "@react-native-async-storage/async-storage": "2.2.0",
