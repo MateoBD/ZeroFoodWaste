@@ -9,6 +9,7 @@
     "scheme": "zerofoodwaste",
     "userInterfaceStyle": "automatic",
     "android": {
+      "package": "com.zerofoodwaste.app",
       "adaptiveIcon": {
         "backgroundColor": "#176B42",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
