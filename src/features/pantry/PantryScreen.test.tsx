@@ -1,14 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
 import { TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
 
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
-);
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
 jest.mock('@shopify/flash-list', () => ({
   FlashList: jest.requireActual('react-native').FlatList,
@@ -37,6 +34,7 @@ async function addFood(
 
 describe('PantryScreen', () => {
   beforeEach(async () => {
+    jest.clearAllMocks();
     mockUseLocales.mockReturnValue([{ languageCode: 'en' }]);
     await AsyncStorage.clear();
   });
@@ -172,6 +170,9 @@ describe('PantryScreen', () => {
     const firstSession = await renderLoadedPantry();
     await addFood(firstSession, 'Bread', '2026-10-10');
     await addFood(firstSession, 'Milk', '2026-10-12');
+    await waitFor(async () => {
+      expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toHaveLength(2);
+    });
     await firstSession.unmount();
 
     const secondSession = await renderLoadedPantry();
@@ -180,6 +181,30 @@ describe('PantryScreen', () => {
     expect(secondSession.getByText('Expires: 2026-10-10')).toBeTruthy();
     expect(secondSession.getByText('Milk')).toBeTruthy();
     expect(secondSession.getByText('Expires: 2026-10-12')).toBeTruthy();
+  });
+
+  it('saves rapid additions in order, even when the first write is delayed', async () => {
+    const realSetItem = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+    let finishFirstWrite!: () => void;
+    const firstWrite = new Promise<void>((resolve) => { finishFirstWrite = resolve; });
+    jest.mocked(AsyncStorage.setItem).mockImplementationOnce(async (key, value) => {
+      await firstWrite;
+      await realSetItem(key, value);
+    });
+    const screen = await renderLoadedPantry();
+
+    await addFood(screen, 'Bread', '2026-10-10');
+    await addFood(screen, 'Milk', '2026-10-12');
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.getByText('Milk')).toBeTruthy();
+    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
+
+    finishFirstWrite();
+    await waitFor(() => expect(AsyncStorage.setItem).toHaveBeenCalledTimes(2));
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+      expect(JSON.parse(raw!).items.map((item: { name: string }) => item.name)).toEqual(['Bread', 'Milk']);
+    });
   });
 
   it('shows an error and retries when the pantry cannot be loaded', async () => {
@@ -211,6 +236,19 @@ describe('PantryScreen', () => {
     expect(screen.getByRole('button', { name: 'Add food' })).toBeTruthy();
   });
 
+  it('keeps damaged storage unchanged and blocks additions during load errors', async () => {
+    const damaged = '{bad json';
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, damaged);
+    const screen = await render(<PantryScreen />);
+
+    expect(await screen.findByText('Your pantry could not be loaded.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add food' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Your pantry could not be loaded.')).toBeTruthy();
+    expect(await AsyncStorage.getItem(PANTRY_STORAGE_KEY)).toBe(damaged);
+    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
+  });
+
   it('announces when an added item cannot be saved', async () => {
     jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('disk full'));
     const screen = await renderLoadedPantry();
@@ -223,5 +261,22 @@ describe('PantryScreen', () => {
         'Your latest change could not be saved on this device and may be lost when the app closes.',
       ),
     ).toBeTruthy();
+  });
+
+  it('clears the save warning after a later successful write', async () => {
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('disk full'));
+    const screen = await renderLoadedPantry();
+
+    await addFood(screen, 'Bread', '2026-10-15');
+    expect(await screen.findByText(
+      'Your latest change could not be saved on this device and may be lost when the app closes.',
+    )).toBeTruthy();
+    await addFood(screen, 'Milk', '2026-10-16');
+
+    await waitFor(() => expect(screen.queryByText(
+      'Your latest change could not be saved on this device and may be lost when the app closes.',
+    )).toBeNull());
+    const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+    expect(JSON.parse(raw!).items).toHaveLength(2);
   });
 });

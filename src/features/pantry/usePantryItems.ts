@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { createPantryItem, type PantryItem } from './pantryItem';
 import { asyncStoragePantryRepository, type PantryRepository } from './pantryRepository';
@@ -10,6 +10,9 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
   const [status, setStatus] = useState<PantryLoadStatus>('loading');
   const [hasSaveError, setHasSaveError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const itemsRef = useRef<PantryItem[]>([]);
+  const statusRef = useRef<PantryLoadStatus>('loading');
+  const writeQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let isActive = true;
@@ -17,12 +20,15 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
     repository.loadItems().then(
       (loadedItems) => {
         if (isActive) {
+          itemsRef.current = loadedItems;
           setItems(loadedItems);
+          statusRef.current = 'ready';
           setStatus('ready');
         }
       },
       () => {
         if (isActive) {
+          statusRef.current = 'error';
           setStatus('error');
         }
       },
@@ -34,6 +40,7 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
   }, [repository, loadAttempt]);
 
   function retryLoad() {
+    statusRef.current = 'loading';
     setStatus('loading');
     setLoadAttempt((attempt) => attempt + 1);
   }
@@ -41,13 +48,17 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
   // Adding is only offered once loading succeeds, so a save never overwrites
   // stored items that have not been read yet.
   function addItem(name: string, expirationDate: string) {
-    const nextItems = [...items, createPantryItem(name, expirationDate)];
+    if (statusRef.current !== 'ready') return;
+    const nextItems = [...itemsRef.current, createPantryItem(name, expirationDate)];
 
+    itemsRef.current = nextItems;
     setItems(nextItems);
-    repository.saveItems(nextItems).then(
-      () => setHasSaveError(false),
-      () => setHasSaveError(true),
-    );
+    writeQueue.current = writeQueue.current
+      .then(() => repository.saveItems(nextItems))
+      .then(
+        () => setHasSaveError(false),
+        () => setHasSaveError(true),
+      );
   }
 
   return { items, status, hasSaveError, addItem, retryLoad };

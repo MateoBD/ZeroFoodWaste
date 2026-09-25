@@ -1,4 +1,7 @@
-import { parseStoredPantry } from './pantryRepository';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { asyncStoragePantryRepository, PANTRY_STORAGE_KEY } from './pantryRepository';
+import { parseStoredPantry } from './pantryStorageCodec';
 
 const bread = {
   id: 'item-1',
@@ -16,24 +19,44 @@ describe('parseStoredPantry', () => {
     expect(parseStoredPantry(JSON.stringify({ version: 1, items: [bread] }))).toEqual([bread]);
   });
 
-  it('treats unreadable or unknown data as an empty pantry', () => {
-    expect(parseStoredPantry('not json')).toEqual([]);
-    expect(parseStoredPantry(JSON.stringify([bread]))).toEqual([]);
-    expect(parseStoredPantry(JSON.stringify({ version: 2, items: [bread] }))).toEqual([]);
+  it('rejects unreadable and unknown data', () => {
+    expect(() => parseStoredPantry('not json')).toThrow();
+    expect(() => parseStoredPantry(JSON.stringify([bread]))).toThrow();
+    expect(() => parseStoredPantry(JSON.stringify({ version: 2, items: [bread] }))).toThrow();
   });
 
-  it('skips malformed items and keeps valid ones', () => {
+  it('rejects an entire pantry with a malformed item or impossible calendar date', () => {
     const raw = JSON.stringify({
       version: 1,
       items: [
         bread,
         { ...bread, id: 'item-2', name: 42 },
         { ...bread, id: 'item-3', expirationDate: undefined },
-        { ...bread, id: 'item-4', expirationDate: '15/10/2026' },
+        { ...bread, id: 'item-4', expirationDate: '2026-02-31' },
         null,
       ],
     });
 
-    expect(parseStoredPantry(raw)).toEqual([bread]);
+    expect(() => parseStoredPantry(raw)).toThrow();
+    expect(() => parseStoredPantry(JSON.stringify({ version: 1, items: [bread, bread] }))).toThrow();
+    expect(parseStoredPantry(JSON.stringify({
+      version: 1,
+      items: [{ ...bread, expirationDate: '2028-02-29' }],
+    }))).toHaveLength(1);
+  });
+});
+
+describe('asyncStoragePantryRepository', () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+  });
+
+  it('preserves the original value when loading damaged data fails', async () => {
+    const damaged = JSON.stringify({ version: 1, items: [{ ...bread, expirationDate: '2026-02-31' }] });
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, damaged);
+
+    await expect(asyncStoragePantryRepository.loadItems()).rejects.toThrow();
+    expect(await AsyncStorage.getItem(PANTRY_STORAGE_KEY)).toBe(damaged);
   });
 });

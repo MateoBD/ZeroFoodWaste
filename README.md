@@ -27,6 +27,8 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 
 Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; recipes and statistics get their own feature folders when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
 
+Device-local storage is the agreed choice for this early pantry. A missing storage key starts with an empty pantry. If the saved JSON, format version, or an item is invalid, the app shows a load error and offers retry. It keeps the original stored value and blocks additions until loading succeeds, so damaged data is not silently replaced. A failed save leaves a visible warning; a later successful save clears it.
+
 ## Checks
 
 ```bash
