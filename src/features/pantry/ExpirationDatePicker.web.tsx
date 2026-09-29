@@ -12,6 +12,15 @@ type ExpirationDatePickerProps = {
   value: string;
 };
 
+/**
+ * Renders a control that opens the browser's native date input.
+ *
+ * Invalid or past values fall back to today. The callback receives the
+ * browser's YYYY-MM-DD value after the user selects a date.
+ *
+ * @param props - The current date value and change callback.
+ * @returns The web expiration-date picker control.
+ */
 export function ExpirationDatePicker({ onChange, value }: ExpirationDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const t = useMessages();

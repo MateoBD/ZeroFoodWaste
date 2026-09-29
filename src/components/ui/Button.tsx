@@ -4,6 +4,12 @@ import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type 
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
+/**
+ * Displays button text using the current theme's accent contrast color.
+ *
+ * @param props - The content rendered inside the button label.
+ * @returns The themed button text element.
+ */
 export function ButtonText({ children }: PropsWithChildren) {
   const { colors } = useTheme();
   return <Text style={[styles.buttonText, { color: colors.accentText }]}>{children}</Text>;
@@ -11,6 +17,12 @@ export function ButtonText({ children }: PropsWithChildren) {
 
 type ButtonProps = Omit<PressableProps, 'style'> & { style?: StyleProp<ViewStyle> };
 
+/**
+ * Renders an accessible pressable with a 48-point minimum touch height.
+ *
+ * @param props - Native pressable props, content, and an optional container style.
+ * @returns The themed button element.
+ */
 export function Button({ children, style, ...props }: PropsWithChildren<ButtonProps>) {
   const { colors } = useTheme();
   return (

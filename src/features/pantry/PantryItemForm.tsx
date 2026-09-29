@@ -12,6 +12,14 @@ import type { IngredientCatalogStatus } from '@/features/recipes/useIngredientCa
 import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate';
 import { ExpirationDatePicker } from './ExpirationDatePicker';
 
+/**
+ * Highlights a literal substring match within an ingredient suggestion.
+ *
+ * @param name - The canonical ingredient name to display.
+ * @param query - The text typed by the user.
+ * @param highlightColor - The semantic color applied to the matching text.
+ * @returns The plain name or a text fragment with the matched range highlighted.
+ */
 function renderHighlightedIngredientName(name: string, query: string, highlightColor: string) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matchStart = name.toLocaleLowerCase().indexOf(normalizedQuery);
@@ -40,6 +48,15 @@ type PantryItemFormProps = {
   onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
 
+/**
+ * Collects a food name and package date with optional ingredient autocomplete.
+ *
+ * The form validates a non-empty name and a valid local YYYY-MM-DD date that
+ * is today or later before calling the save callback.
+ *
+ * @param props - Initial values, catalogue state, and save or cancel callbacks.
+ * @returns The add or edit form.
+ */
 export function PantryItemForm({
   initialName = '',
   initialExpirationDate = '',

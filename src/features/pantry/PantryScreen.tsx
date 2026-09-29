@@ -26,6 +26,11 @@ function ItemSeparator() {
   return <View style={styles.separator} />;
 }
 
+/**
+ * Coordinates the device-local pantry list and add or edit modal.
+ *
+ * @returns The main pantry screen.
+ */
 export function PantryScreen() {
   const { items, status, hasSaveError, addItem, updateItem, retryLoad } = usePantryItems();
   const [isFormVisible, setIsFormVisible] = useState(false);

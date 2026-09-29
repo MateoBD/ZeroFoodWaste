@@ -1,14 +1,28 @@
 import type { IngredientReference } from '@/features/recipes/ingredient';
 
+/**
+ * Represents one stored pantry entry.
+ *
+ * The expiration date is a package date in YYYY-MM-DD format, not a UTC instant.
+ */
 export type PantryItem = Readonly<{
   id: string;
   name: string;
   recipeIngredient: IngredientReference | null;
-  // Package expiry as a date-only YYYY-MM-DD value, never a UTC instant.
   expirationDate: string;
   createdAt: string;
 }>;
 
+/**
+ * Creates a pantry item with a generated ID and an ISO creation timestamp.
+ *
+ * @param name - The user-provided food name.
+ * @param expirationDate - The package expiration date in YYYY-MM-DD format.
+ * @param recipeIngredient - The selected recipe ingredient, or null for manual food.
+ * @param now - The time used for the ID and creation timestamp. Defaults to now.
+ * @returns A new pantry item.
+ * @throws RangeError when `now` is not a valid Date.
+ */
 export function createPantryItem(
   name: string,
   expirationDate: string,
