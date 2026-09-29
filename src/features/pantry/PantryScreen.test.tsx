@@ -4,6 +4,7 @@ import { useLocales } from 'expo-localization';
 import { TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
+import { calendarDateToLocalDate, localDateToCalendarDate } from './calendarDate';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
@@ -60,6 +61,12 @@ describe('PantryScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Añadir alimento' }));
     expect(screen.getByLabelText('Nombre del alimento')).toBeTruthy();
     expect(screen.getByLabelText('Fecha de caducidad')).toBeTruthy();
+
+    await fireEvent.changeText(screen.getByLabelText('Nombre del alimento'), 'Pan');
+    await fireEvent.changeText(screen.getByLabelText('Fecha de caducidad'), '2000-01-01');
+    await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(screen.getByText('Elige la fecha de hoy o una fecha futura.')).toBeTruthy();
   });
 
   it('opens and cancels the form while discarding its draft', async () => {
@@ -69,7 +76,7 @@ describe('PantryScreen', () => {
     expect(addButton.props.accessibilityState).toEqual({ expanded: false });
     await fireEvent.press(addButton);
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
-    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2026-10-15');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' });
     expect(cancelButton.props.accessibilityState).toEqual({ expanded: true });
@@ -97,7 +104,7 @@ describe('PantryScreen', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     await fireEvent.changeText(screen.getByLabelText('Food name'), '   ');
-    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2026-10-15');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     const error = screen.getByRole('alert');
@@ -132,6 +139,79 @@ describe('PantryScreen', () => {
     expect(screen.getByText('Enter a valid date (YYYY-MM-DD).')).toBeTruthy();
   });
 
+  it('rejects a past expiration date with an announced error', async () => {
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2000-01-01');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    const error = screen.getByRole('alert');
+    expect(error.props.accessibilityLiveRegion).toBe('assertive');
+    expect(screen.getByText('Choose today or a future date.')).toBeTruthy();
+  });
+
+  it('accepts the current local calendar date', async () => {
+    const screen = await renderLoadedPantry();
+    const today = localDateToCalendarDate(new Date());
+
+    await addFood(screen, 'Bread', today);
+
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.getByText(`Expires: ${today}`)).toBeTruthy();
+  });
+
+  it('opens the picker at today and prevents earlier selections', async () => {
+    const screen = await renderLoadedPantry();
+    const today = localDateToCalendarDate(new Date());
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose expiration date' }));
+    const picker = screen.getByTestId('expiration-date-picker');
+
+    expect(localDateToCalendarDate(new Date(picker.props.minimumDate))).toBe(today);
+    expect(localDateToCalendarDate(new Date(picker.props.date))).toBe(today);
+    expect(picker.props.minimumDate).toBe(calendarDateToLocalDate(today)?.getTime());
+  });
+
+  it('keeps the typed expiration date when picker changes are cancelled', async () => {
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    const dateInput = screen.getByLabelText('Expiration date');
+    await fireEvent.changeText(dateInput, '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose expiration date' }));
+    await fireEvent(
+      screen.getByTestId('expiration-date-picker'),
+      'valueChange',
+      { nativeEvent: { timestamp: 0, utcOffset: 0 } },
+      new Date(2999, 9, 20, 12),
+    );
+    const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' });
+    await fireEvent.press(cancelButtons[cancelButtons.length - 1]);
+
+    expect(screen.getByLabelText('Expiration date').props.value).toBe('2999-10-15');
+    expect(screen.queryByTestId('expiration-date-picker')).toBeNull();
+  });
+
+  it('fills the expiration field from the date picker', async () => {
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose expiration date' }));
+    const picker = screen.getByTestId('expiration-date-picker');
+    await fireEvent(
+      picker,
+      'valueChange',
+      { nativeEvent: { timestamp: 0, utcOffset: 0 } },
+      new Date(2999, 9, 15, 12),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+
+    expect(screen.getByLabelText('Expiration date').props.value).toBe('2999-10-15');
+  });
+
   it('trims submitted values, displays expiration date, closes the form, and resets it', async () => {
     const screen = await renderLoadedPantry();
 
@@ -139,11 +219,11 @@ describe('PantryScreen', () => {
     const nameInput = screen.getByLabelText('Food name');
     const dateInput = screen.getByLabelText('Expiration date');
     await fireEvent.changeText(nameInput, '  Bread  ');
-    await fireEvent.changeText(dateInput, '  2026-10-15  ');
+    await fireEvent.changeText(dateInput, '  2999-10-15  ');
     await fireEvent(dateInput, 'submitEditing');
 
     expect(screen.getByText('Bread')).toBeTruthy();
-    expect(screen.getByText('Expires: 2026-10-15')).toBeTruthy();
+    expect(screen.getByText('Expires: 2999-10-15')).toBeTruthy();
     expect(screen.queryByLabelText('Food name')).toBeNull();
     expect(screen.queryByLabelText('Expiration date')).toBeNull();
 
@@ -155,21 +235,21 @@ describe('PantryScreen', () => {
   it('keeps multiple entries independently keyed, including duplicate names', async () => {
     const screen = await renderLoadedPantry();
 
-    await addFood(screen, 'Bread', '2026-10-10');
-    await addFood(screen, 'Milk', '2026-10-12');
-    await addFood(screen, 'Bread', '2026-10-20');
+    await addFood(screen, 'Bread', '2999-10-10');
+    await addFood(screen, 'Milk', '2999-10-12');
+    await addFood(screen, 'Bread', '2999-10-20');
 
     expect(screen.getAllByText('Bread')).toHaveLength(2);
-    expect(screen.getByText('Expires: 2026-10-10')).toBeTruthy();
-    expect(screen.getByText('Expires: 2026-10-12')).toBeTruthy();
-    expect(screen.getByText('Expires: 2026-10-20')).toBeTruthy();
+    expect(screen.getByText('Expires: 2999-10-10')).toBeTruthy();
+    expect(screen.getByText('Expires: 2999-10-12')).toBeTruthy();
+    expect(screen.getByText('Expires: 2999-10-20')).toBeTruthy();
     expect(screen.queryByText('Your pantry is empty. Add a food to get started.')).toBeNull();
   });
 
   it('keeps saved items and expiration dates after the app restarts', async () => {
     const firstSession = await renderLoadedPantry();
-    await addFood(firstSession, 'Bread', '2026-10-10');
-    await addFood(firstSession, 'Milk', '2026-10-12');
+    await addFood(firstSession, 'Bread', '2999-10-10');
+    await addFood(firstSession, 'Milk', '2999-10-12');
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toHaveLength(2);
     });
@@ -178,9 +258,9 @@ describe('PantryScreen', () => {
     const secondSession = await renderLoadedPantry();
 
     expect(secondSession.getByText('Bread')).toBeTruthy();
-    expect(secondSession.getByText('Expires: 2026-10-10')).toBeTruthy();
+    expect(secondSession.getByText('Expires: 2999-10-10')).toBeTruthy();
     expect(secondSession.getByText('Milk')).toBeTruthy();
-    expect(secondSession.getByText('Expires: 2026-10-12')).toBeTruthy();
+    expect(secondSession.getByText('Expires: 2999-10-12')).toBeTruthy();
   });
 
   it('saves rapid additions in order, even when the first write is delayed', async () => {
@@ -193,8 +273,8 @@ describe('PantryScreen', () => {
     });
     const screen = await renderLoadedPantry();
 
-    await addFood(screen, 'Bread', '2026-10-10');
-    await addFood(screen, 'Milk', '2026-10-12');
+    await addFood(screen, 'Bread', '2999-10-10');
+    await addFood(screen, 'Milk', '2999-10-12');
     expect(screen.getByText('Bread')).toBeTruthy();
     expect(screen.getByText('Milk')).toBeTruthy();
     expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
@@ -253,7 +333,7 @@ describe('PantryScreen', () => {
     jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('disk full'));
     const screen = await renderLoadedPantry();
 
-    await addFood(screen, 'Bread', '2026-10-15');
+    await addFood(screen, 'Bread', '2999-10-15');
 
     expect(screen.getByText('Bread')).toBeTruthy();
     expect(
@@ -267,11 +347,11 @@ describe('PantryScreen', () => {
     jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('disk full'));
     const screen = await renderLoadedPantry();
 
-    await addFood(screen, 'Bread', '2026-10-15');
+    await addFood(screen, 'Bread', '2999-10-15');
     expect(await screen.findByText(
       'Your latest change could not be saved on this device and may be lost when the app closes.',
     )).toBeTruthy();
-    await addFood(screen, 'Milk', '2026-10-16');
+    await addFood(screen, 'Milk', '2999-10-16');
 
     await waitFor(() => expect(screen.queryByText(
       'Your latest change could not be saved on this device and may be lost when the app closes.',

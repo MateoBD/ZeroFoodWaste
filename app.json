@@ -42,7 +42,8 @@
             "android": ["en", "es"]
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
