@@ -64,6 +64,9 @@ describe('theMealDbRecipeProvider', () => {
       { provider: 'themealdb', id: '1', name: 'Chicken' },
       { provider: 'themealdb', id: '2', name: 'Milk' },
     ]);
+    expect(fetch).toHaveBeenCalledWith(
+      'https://www.themealdb.com/api/json/v1/1/list.php?i=list',
+    );
   });
 
   it('returns no ingredients when the catalogue is empty', async () => {
@@ -74,5 +77,43 @@ describe('theMealDbRecipeProvider', () => {
     } as Response);
 
     await expect(theMealDbIngredientProvider.listIngredients()).resolves.toEqual([]);
+  });
+
+  it('throws when the ingredient catalogue responds with an error status', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(theMealDbIngredientProvider.listIngredients()).rejects.toThrow(
+      'TheMealDB ingredient request failed with status 503',
+    );
+  });
+
+  it('filters malformed entries, trims values, deduplicates IDs, and sorts names', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        meals: [
+          null,
+          [],
+          {},
+          { idIngredient: 1, strIngredient: 'Numeric ID' },
+          { idIngredient: ' ', strIngredient: 'Blank ID' },
+          { idIngredient: '2', strIngredient: 42 },
+          { idIngredient: '3', strIngredient: '   ' },
+          { idIngredient: ' 9 ', strIngredient: '  Zucchini  ' },
+          { idIngredient: '7', strIngredient: '  Apple  ' },
+          { idIngredient: '9', strIngredient: 'Duplicate ID' },
+        ],
+      }),
+    } as Response);
+
+    await expect(theMealDbIngredientProvider.listIngredients()).resolves.toEqual([
+      { provider: 'themealdb', id: '7', name: 'Apple' },
+      { provider: 'themealdb', id: '9', name: 'Zucchini' },
+    ]);
   });
 });

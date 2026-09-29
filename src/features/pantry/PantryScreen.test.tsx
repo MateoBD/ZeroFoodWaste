@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
-import { TextInput } from 'react-native';
+import { StyleSheet, TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
 import { calendarDateToLocalDate, localDateToCalendarDate } from './calendarDate';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
+import { colors } from '@/theme/tokens';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
 jest.mock('@shopify/flash-list', () => ({
@@ -31,6 +32,37 @@ async function addFood(
   await fireEvent.changeText(screen.getByLabelText('Food name'), name);
   await fireEvent.changeText(screen.getByLabelText('Expiration date'), expirationDate);
   await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+}
+
+function ingredientCatalogueResponse(
+  ingredients: { id: string; name: string }[],
+): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      meals: ingredients.map((ingredient) => ({
+        idIngredient: ingredient.id,
+        strIngredient: ingredient.name,
+      })),
+    }),
+  } as Response;
+}
+
+async function storeLinkedChicken() {
+  await AsyncStorage.setItem(
+    PANTRY_STORAGE_KEY,
+    JSON.stringify({
+      version: 2,
+      items: [{
+        id: 'item-1',
+        name: 'Chicken',
+        recipeIngredient: { provider: 'themealdb', id: '1', name: 'Chicken' },
+        expirationDate: '2999-10-15',
+        createdAt: '2026-09-01T10:00:00.000Z',
+      }],
+    }),
+  );
 }
 
 describe('PantryScreen', () => {
@@ -190,23 +222,30 @@ describe('PantryScreen', () => {
   });
 
   it('suggests an English ingredient and persists its TheMealDB reference', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        meals: [
-          { idIngredient: '1', strIngredient: 'Chicken' },
-          { idIngredient: '2', strIngredient: 'Chicken Stock' },
-        ],
-      }),
-    } as Response);
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
+      { id: '1', name: 'Chicken' },
+      { id: '2', name: 'Chicken Stock' },
+    ]));
 
     const screen = await renderLoadedPantry();
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'chick');
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chicken' }));
+    expect(await screen.findByLabelText('Ingredient suggestions')).toBeTruthy();
+    const suggestion = screen.getByRole('button', { name: 'Chicken' });
+    expect(suggestion.props.accessibilityRole).toBe('button');
+    const highlights = screen.getAllByText('Chick');
+    expect(highlights).toHaveLength(2);
+    highlights.forEach((highlight) => {
+      expect(StyleSheet.flatten(highlight.props.style)).toMatchObject({
+        color: colors.light.accent,
+        fontWeight: '700',
+      });
+    });
+
+    await fireEvent.press(suggestion);
     expect(screen.getByLabelText('Food name').props.value).toBe('Chicken');
+    expect(screen.getByText('Recipe ingredient: Chicken')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
@@ -216,20 +255,80 @@ describe('PantryScreen', () => {
     });
   });
 
-  it('clears the TheMealDB reference when an edited name changes', async () => {
-    await AsyncStorage.setItem(
-      PANTRY_STORAGE_KEY,
-      JSON.stringify({
-        version: 2,
-        items: [{
-          id: 'item-1',
-          name: 'Chicken',
-          recipeIngredient: { provider: 'themealdb', id: '1', name: 'Chicken' },
-          expirationDate: '2999-10-15',
-          createdAt: '2026-09-01T10:00:00.000Z',
-        }],
+  it('shows a loading message while ingredient suggestions are pending', async () => {
+    let resolveFetch!: (response: Response) => void;
+    jest.spyOn(globalThis, 'fetch').mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
       }),
     );
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'ch');
+
+    expect(await screen.findByText('Loading ingredient suggestions…')).toBeTruthy();
+    await act(async () => resolveFetch(ingredientCatalogueResponse([])));
+  });
+
+  it('allows an unmatched manual food and stores no recipe reference', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
+      { id: '2', name: 'Milk' },
+    ]));
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Zucchini');
+    expect(await screen.findByText(
+      'No ingredient match found. You can still save this food.',
+    )).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored.recipeIngredient).toBeNull();
+    });
+  });
+
+  it('keeps manual save available when ingredient suggestions are unavailable', async () => {
+    jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
+    expect(await screen.findByText(
+      'Ingredient suggestions are unavailable. You can still save this food.',
+    )).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored.recipeIngredient).toBeNull();
+    });
+  });
+
+  it('preserves a linked ingredient when only its date is edited', async () => {
+    await storeLinkedChicken();
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit food' }));
+    expect(screen.getByText('Recipe ingredient: Chicken')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-20');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored).toMatchObject({
+        expirationDate: '2999-10-20',
+        recipeIngredient: { provider: 'themealdb', id: '1', name: 'Chicken' },
+      });
+    });
+  });
+
+  it('clears the TheMealDB reference when an edited name changes', async () => {
+    await storeLinkedChicken();
 
     const screen = await renderLoadedPantry();
     await fireEvent.press(screen.getByRole('button', { name: 'Edit food' }));
@@ -239,6 +338,29 @@ describe('PantryScreen', () => {
     await waitFor(async () => {
       const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
       expect(stored.recipeIngredient).toBeNull();
+    });
+  });
+
+  it('replaces a linked ingredient after the edited name selects a new suggestion', async () => {
+    await storeLinkedChicken();
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
+      { id: '1', name: 'Chicken' },
+      { id: '2', name: 'Milk' },
+    ]));
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'mi');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Milk' }));
+    expect(screen.getByText('Recipe ingredient: Milk')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored).toMatchObject({
+        name: 'Milk',
+        recipeIngredient: { provider: 'themealdb', id: '2', name: 'Milk' },
+      });
     });
   });
 

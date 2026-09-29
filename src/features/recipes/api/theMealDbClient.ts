@@ -78,18 +78,20 @@ export const theMealDbIngredientProvider: IngredientCatalogProvider = {
       .filter((ingredient): ingredient is TheMealDbIngredient => {
         if (typeof ingredient !== 'object' || ingredient === null || Array.isArray(ingredient)) return false;
         const candidate = ingredient as Record<string, unknown>;
+        const normalizedId = typeof candidate.idIngredient === 'string'
+          ? candidate.idIngredient.trim()
+          : '';
         const isValid =
-          typeof candidate.idIngredient === 'string' &&
-          candidate.idIngredient.trim().length > 0 &&
+          normalizedId.length > 0 &&
           typeof candidate.strIngredient === 'string' &&
           candidate.strIngredient.trim().length > 0 &&
-          !seenIds.has(candidate.idIngredient);
-        if (isValid) seenIds.add(candidate.idIngredient as string);
+          !seenIds.has(normalizedId);
+        if (isValid) seenIds.add(normalizedId);
         return isValid;
       })
       .map((ingredient) => ({
         provider: 'themealdb' as const,
-        id: ingredient.idIngredient,
+        id: ingredient.idIngredient.trim(),
         name: ingredient.strIngredient.trim(),
       }))
       .sort((first, second) => first.name.localeCompare(second.name));
