@@ -1,7 +1,7 @@
 import type { IngredientCatalogProvider } from '../ingredientProvider';
 import type { IngredientCatalogEntry } from '../ingredient';
 import type { RecipeProvider } from '../recipeProvider';
-import type { RecipeSummary } from '../recipe';
+import type { RecipeDetail, RecipeIngredient, RecipeSummary } from '../recipe';
 
 const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
 
@@ -14,6 +14,16 @@ const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
 function buildFilterByIngredientUrl(ingredient: string): string {
   const encodedIngredient = encodeURIComponent(ingredient);
   return `${BASE_URL}/filter.php?i=${encodedIngredient}`;
+}
+
+/**
+ * Builds the URL used to request a complete recipe by its TheMealDB ID.
+ *
+ * @param mealId - The TheMealDB meal identifier.
+ * @returns The encoded TheMealDB recipe-lookup URL.
+ */
+function buildMealLookupUrl(mealId: string): string {
+  return `${BASE_URL}/lookup.php?i=${encodeURIComponent(mealId)}`;
 }
 
 function buildIngredientListUrl(): string {
@@ -46,6 +56,23 @@ async function fetchMealsByIngredient(ingredient: string): Promise<RecipeSummary
     return data.meals.map(toRecipeSummary);
 }
 
+/**
+ * Requests and translates the complete recipe identified by a TheMealDB meal ID.
+ *
+ * @param mealId - The TheMealDB meal identifier.
+ * @returns The translated recipe, or `null` when the API has no matching meal.
+ */
+async function fetchMealById(mealId: string): Promise<RecipeDetail | null> {
+  const response = await fetch(buildMealLookupUrl(mealId));
+
+  if (!response.ok) {
+    throw new Error(`TheMealDB recipe lookup failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as { meals: TheMealDbMealDetail[] | null };
+  return data.meals?.[0] ? toRecipeDetail(data.meals[0]) : null;
+}
+
 type TheMealDbMealSummary = {
     idMeal: string;
     strMeal: string;
@@ -54,16 +81,23 @@ type TheMealDbMealSummary = {
     strCountry: string | null;
 };
 
+type TheMealDbMealDetail = TheMealDbMealSummary & {
+  strInstructions: string | null;
+  strSource: string | null;
+  [key: `strIngredient${number}`]: string | null | undefined;
+  [key: `strMeasure${number}`]: string | null | undefined;
+};
+
 type TheMealDbIngredient = {
   idIngredient: string;
   strIngredient: string;
 };
   
 /**
- * Maps a TheMealDB filter record to the provider-neutral recipe summary.
+ * Translates the fields returned by TheMealDB's filter endpoint.
  *
- * @param meal - The validated provider record to map.
- * @returns A provider-neutral recipe summary.
+ * @param meal - The raw meal summary returned by TheMealDB.
+ * @returns The app's provider-independent recipe summary.
  */
 function toRecipeSummary(meal: TheMealDbMealSummary): RecipeSummary {
     return {
@@ -75,18 +109,61 @@ function toRecipeSummary(meal: TheMealDbMealSummary): RecipeSummary {
 }
 
 /**
- * TheMealDB recipe adapter. Search works; getById currently rejects because
- * the detail lookup has not been implemented.
+ * Removes blank strings from optional TheMealDB fields.
  *
- * Search rejects for network, HTTP, or response-decoding failures. Detail
- * lookup always rejects with a not-implemented error in the current version.
+ * @param value - A possibly blank TheMealDB string field.
+ * @returns The trimmed value, or `null` when it has no usable text.
+ */
+function toOptionalTrimmedString(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Converts TheMealDB's numbered ingredient and measure fields into a list.
+ *
+ * @param meal - The raw recipe detail returned by TheMealDB.
+ * @returns Populated ingredient entries with their optional measures.
+ */
+function toRecipeIngredients(meal: TheMealDbMealDetail): RecipeIngredient[] {
+  return Array.from({ length: 20 }, (_, index) => index + 1)
+    .map((position) => {
+      const name = toOptionalTrimmedString(meal[`strIngredient${position}`]);
+      if (!name) return null;
+      return { name, measure: toOptionalTrimmedString(meal[`strMeasure${position}`]) };
+    })
+    .filter((ingredient): ingredient is RecipeIngredient => ingredient !== null);
+}
+
+/**
+ * Translates the complete recipe payload returned by TheMealDB's lookup endpoint.
+ *
+ * @param meal - The raw recipe detail returned by TheMealDB.
+ * @returns The app's provider-independent recipe detail.
+ */
+function toRecipeDetail(meal: TheMealDbMealDetail): RecipeDetail {
+  return {
+    ...toRecipeSummary(meal),
+    ingredients: toRecipeIngredients(meal),
+    instructions: meal.strInstructions?.trim() ?? '',
+    sourceUrl: toOptionalTrimmedString(meal.strSource),
+  };
+}
+
+/**
+ * TheMealDB recipe adapter.
+ *
+ * Supports searching recipes by ingredient and retrieving complete recipe
+ * details by meal ID.
+ *
+ * Requests reject for network, HTTP, or response-decoding failures.
  */
 export const theMealDbRecipeProvider: RecipeProvider = {
     searchByIngredient(ingredient) {
       return fetchMealsByIngredient(ingredient);
     },
-    getById() {
-      return Promise.reject(new Error('Not implemented yet'));
+    getById(mealId) {
+      return fetchMealById(mealId);
   },
 };
 

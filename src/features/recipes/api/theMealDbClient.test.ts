@@ -47,6 +47,66 @@ describe('theMealDbRecipeProvider', () => {
     await expect(theMealDbRecipeProvider.searchByIngredient('chicken')).rejects.toThrow();
   });
 
+  it('returns full recipe details with only populated ingredients', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        meals: [{
+          idMeal: '52772',
+          strMeal: 'Teriyaki Chicken Casserole',
+          strMealThumb: 'https://example.com/chicken.jpg',
+          strInstructions: ' Bake until cooked. ',
+          strSource: ' https://example.com/source ',
+          strIngredient1: 'Chicken',
+          strMeasure1: '3 cups',
+          strIngredient2: 'Rice',
+          strMeasure2: ' ',
+          strIngredient3: '',
+          strMeasure3: '1 tsp',
+        }],
+      }),
+    } as Response);
+
+    await expect(theMealDbRecipeProvider.getById('52772')).resolves.toEqual({
+      id: '52772',
+      name: 'Teriyaki Chicken Casserole',
+      imageUrl: 'https://example.com/chicken.jpg',
+      provider: 'themealdb',
+      ingredients: [
+        { name: 'Chicken', measure: '3 cups' },
+        { name: 'Rice', measure: null },
+      ],
+      instructions: 'Bake until cooked.',
+      sourceUrl: 'https://example.com/source',
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      'https://www.themealdb.com/api/json/v1/1/lookup.php?i=52772',
+    );
+  });
+
+  it('returns null when a recipe ID has no match', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ meals: null }),
+    } as Response);
+
+    await expect(theMealDbRecipeProvider.getById('missing')).resolves.toBeNull();
+  });
+
+  it('throws when recipe lookup responds with an error status', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(theMealDbRecipeProvider.getById('52772')).rejects.toThrow(
+      'TheMealDB recipe lookup failed with status 503',
+    );
+  });
+
   it('maps the English ingredient catalogue', async () => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
+import { router } from 'expo-router';
 import { StyleSheet, TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
@@ -9,6 +10,7 @@ import { PANTRY_STORAGE_KEY } from './pantryRepository';
 import { colors } from '@/theme/tokens';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('@shopify/flash-list', () => ({
   FlashList: jest.requireActual('react-native').FlatList,
 }));
@@ -324,6 +326,18 @@ describe('PantryScreen', () => {
         expirationDate: '2999-10-20',
         recipeIngredient: { provider: 'themealdb', id: '1', name: 'Chicken' },
       });
+    });
+  });
+
+  it('opens recipe results for a linked pantry ingredient', async () => {
+    await storeLinkedChicken();
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Find recipes: Chicken' }));
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/recipes/[ingredient]',
+      params: { ingredient: 'Chicken' },
     });
   });
 

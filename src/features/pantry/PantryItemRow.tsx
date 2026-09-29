@@ -7,11 +7,14 @@ import { Surface } from '@/components/ui/Surface';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { IngredientReference } from '@/features/recipes/ingredient';
 
 type PantryItemRowProps = {
   expirationDate: string;
   name: string;
   onEdit: (id: string) => void;
+  onFindRecipes: (ingredient: IngredientReference) => void;
+  recipeIngredient: IngredientReference | null;
   id: string;
 };
 
@@ -26,6 +29,8 @@ export const PantryItemRow = memo(function PantryItemRow({
   name,
   id,
   onEdit,
+  onFindRecipes,
+  recipeIngredient,
 }: PantryItemRowProps) {
   const t = useMessages();
   const { colors } = useTheme();
@@ -36,6 +41,16 @@ export const PantryItemRow = memo(function PantryItemRow({
       <View style={styles.content}>
         <AppText style={styles.name}>{name}</AppText>
         <AppText variant="muted">{`${t('expiresLabel')}: ${expirationDate}`}</AppText>
+        {recipeIngredient ? (
+          <Pressable
+            accessibilityLabel={`${t('findRecipes')}: ${recipeIngredient.name}`}
+            accessibilityRole="button"
+            onPress={() => onFindRecipes(recipeIngredient)}
+            style={[styles.recipeButton, { borderColor: colors.border }]}
+          >
+            <AppText style={[styles.recipeButtonText, { color: colors.accent }]}>{t('findRecipes')}</AppText>
+          </Pressable>
+        ) : null}
       </View>
       <Pressable
         accessibilityLabel={t('editItem')}
@@ -65,4 +80,13 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1, gap: spacing.xs },
   name: { fontWeight: '600' },
+  recipeButton: {
+    alignSelf: 'flex-start',
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  recipeButtonText: { fontWeight: '700' },
 });
