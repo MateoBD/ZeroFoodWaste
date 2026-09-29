@@ -19,6 +19,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: t('appTitle') }} />
+        <Stack.Screen name="recipes/[ingredient]/index" options={{ title: t('recipeResultsTitle') }} />
+        <Stack.Screen name="recipes/[ingredient]/[mealId]" options={{ title: t('recipeDetailTitle') }} />
       </Stack>
     </>
   );

@@ -1,4 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +53,15 @@ export function PantryScreen() {
     setEditingItemId(null);
   }
 
+  /**
+   * Opens recipes matching the ingredient linked to a pantry item.
+   *
+   * @param ingredient - The canonical TheMealDB ingredient stored with the pantry item.
+   */
+  const handleFindRecipes = useCallback((ingredient: IngredientReference) => {
+    router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
+  }, []);
+
   function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
     const draft = { name, expirationDate, recipeIngredient };
     if (editingItemId) updateItem(editingItemId, draft);
@@ -66,8 +76,10 @@ export function PantryScreen() {
       id={item.id}
       name={item.name}
       onEdit={handleEdit}
+      onFindRecipes={handleFindRecipes}
+      recipeIngredient={item.recipeIngredient}
     />
-  ), [handleEdit]);
+  ), [handleEdit, handleFindRecipes]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
