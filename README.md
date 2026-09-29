@@ -19,6 +19,7 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 | --- | --- |
 | `src/app/` | Expo Router routes and native stack layout. Route files compose screens. |
 | `src/features/pantry/` | Pantry screen, form, loading/empty/error states, item rows, the `PantryItem` model, and the device-local pantry repository. Future inventory domain rules and flows belong here. |
+| `src/features/recipes/` | Recipe types, the `RecipeProvider` boundary, and a TheMealDB client scaffold. No requests or recipe screens are implemented yet. |
 | `src/components/ui/` | Reusable button, text, and surface primitives. |
 | `src/theme/` | Light and dark semantic color and spacing tokens. |
 | `src/i18n/` | Typed English and Spanish messages and device-locale selection. |
@@ -26,7 +27,9 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 | `.github/workflows/pr-checks.yml` | Pull request and post-merge CI for types, lint, tests, and both production bundles. |
 | `eas.json` | EAS Build profiles for installable Android previews and production builds. |
 
-Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; recipes and statistics get their own feature folders when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
+Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; statistics can get its own feature folder when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
+
+The recipe files prepare a future TheMealDB integration; they do not fetch or display recipes yet. The planned flow follows [TheMealDB's API guide](https://www.themealdb.com/documentation): search for one URL-encoded ingredient with `filter.php?i=`, then request full ingredients and instructions for a selected meal ID with `lookup.php?i=`. The filter result supplies summaries, so detail data needs the second request. Keep service loading, empty, and failure states within the recipe feature so pantry management remains available if TheMealDB is unavailable. TheMealDB is a proposed provider, and production access must be settled before shipping the integration.
 
 Device-local storage is the agreed choice for this early pantry. A missing storage key starts with an empty pantry. If the saved JSON, format version, or an item is invalid, the app shows a load error and offers retry. It keeps the original stored value and blocks additions until loading succeeds, so damaged data is not silently replaced. A failed save leaves a visible warning; a later successful save clears it.
 
