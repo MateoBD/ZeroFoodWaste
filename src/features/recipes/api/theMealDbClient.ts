@@ -1,17 +1,52 @@
-/**
- * TheMealDB adapter scaffold. No network client is exported yet.
- *
- * Planned v1 flow:
- * 1. URL-encode one ingredient and request `filter.php?i=<ingredient>` for
- *    meal IDs, names, and thumbnails.
- * 2. URL-encode a selected meal ID and request `lookup.php?i=<mealId>` for
- *    ingredients, instructions, and other full recipe details.
- *
- * Base URL: https://www.themealdb.com/api/json/v1/1/
- * The free key `1` is for development; confirm production access before
- * enabling requests in a shipped app.
- *
- * A future implementation will satisfy RecipeProvider, distinguish empty
- * results from failures, and keep failures isolated from pantry operations.
- */
-export {};
+import type { RecipeProvider } from '../recipeProvider';
+import type { RecipeSummary } from '../recipe';
+
+const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
+
+function buildFilterByIngredientUrl(ingredient: string): string {
+  const encodedIngredient = encodeURIComponent(ingredient);
+  return `${BASE_URL}/filter.php?i=${encodedIngredient}`;
+}
+
+async function fetchMealsByIngredient(ingredient: string): Promise<RecipeSummary[]> {
+    const url = buildFilterByIngredientUrl(ingredient);
+    const response = await fetch(url);
+  
+    if (!response.ok) {
+      throw new Error(`TheMealDB request failed with status ${response.status}`);
+    }
+  
+    const data = (await response.json()) as { meals: TheMealDbMealSummary[] | null };
+  
+    if (!data.meals) {
+      return [];
+    }
+  
+    return data.meals.map(toRecipeSummary);
+}
+
+type TheMealDbMealSummary = {
+    idMeal: string;
+    strMeal: string;
+    strMealThumb: string | null;
+    strArea: string | null;
+    strCountry: string | null;
+};
+  
+function toRecipeSummary(meal: TheMealDbMealSummary): RecipeSummary {
+    return {
+      id: meal.idMeal,
+      name: meal.strMeal,
+      imageUrl: meal.strMealThumb,
+      provider: 'themealdb',
+    };
+}
+
+export const theMealDbRecipeProvider: RecipeProvider = {
+    searchByIngredient(ingredient) {
+      return fetchMealsByIngredient(ingredient);
+    },
+    getById() {
+      return Promise.reject(new Error('Not implemented yet'));
+    },
+};
