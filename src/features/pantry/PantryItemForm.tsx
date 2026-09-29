@@ -1,23 +1,56 @@
-import { useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { IngredientCatalogEntry, IngredientReference } from '@/features/recipes/ingredient';
+import { matchIngredients } from '@/features/recipes/ingredientMatcher';
+import type { IngredientCatalogStatus } from '@/features/recipes/useIngredientCatalog';
 import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate';
 import { ExpirationDatePicker } from './ExpirationDatePicker';
+
+function renderHighlightedIngredientName(name: string, query: string, highlightColor: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchStart = name.toLocaleLowerCase().indexOf(normalizedQuery);
+
+  if (!normalizedQuery || matchStart < 0) return name;
+
+  const matchEnd = matchStart + normalizedQuery.length;
+  return (
+    <>
+      {name.slice(0, matchStart)}
+      <Text style={[styles.highlight, { color: highlightColor }]}>
+        {name.slice(matchStart, matchEnd)}
+      </Text>
+      {name.slice(matchEnd)}
+    </>
+  );
+}
 
 type PantryItemFormProps = {
   initialName?: string;
   initialExpirationDate?: string;
+  initialRecipeIngredient?: IngredientReference | null;
+  ingredientCatalog: readonly IngredientCatalogEntry[];
+  ingredientCatalogStatus: IngredientCatalogStatus;
   onCancel: () => void;
-  onSave: (name: string, expirationDate: string) => void;
+  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
 
-export function PantryItemForm({ initialName = '', initialExpirationDate = '', onCancel, onSave }: PantryItemFormProps) {
+export function PantryItemForm({
+  initialName = '',
+  initialExpirationDate = '',
+  initialRecipeIngredient = null,
+  ingredientCatalog,
+  ingredientCatalogStatus,
+  onCancel,
+  onSave,
+}: PantryItemFormProps) {
   const [nameDraft, setNameDraft] = useState(initialName);
+  const [selectedIngredient, setSelectedIngredient] = useState<IngredientReference | null>(initialRecipeIngredient);
   const [expirationDateDraft, setExpirationDateDraft] = useState(initialExpirationDate);
   const [hasNameError, setHasNameError] = useState(false);
   const [expirationError, setExpirationError] = useState<'required' | 'invalid' | 'past' | null>(
@@ -26,12 +59,23 @@ export function PantryItemForm({ initialName = '', initialExpirationDate = '', o
   const expirationInputRef = useRef<TextInput>(null);
   const t = useMessages();
   const { colors } = useTheme();
+  const suggestions = useMemo(
+    () => selectedIngredient ? [] : matchIngredients(nameDraft, ingredientCatalog),
+    [ingredientCatalog, nameDraft, selectedIngredient],
+  );
 
   function handleNameChange(value: string) {
     setNameDraft(value);
+    setSelectedIngredient(null);
     if (hasNameError) {
       setHasNameError(false);
     }
+  }
+
+  function handleIngredientSelect(ingredient: IngredientReference) {
+    setNameDraft(ingredient.name);
+    setSelectedIngredient(ingredient);
+    setHasNameError(false);
   }
 
   function handleExpirationChange(value: string) {
@@ -70,7 +114,7 @@ export function PantryItemForm({ initialName = '', initialExpirationDate = '', o
     setExpirationDateDraft('');
     setHasNameError(false);
     setExpirationError(null);
-    onSave(trimmedName, trimmedExpiration);
+    onSave(trimmedName, trimmedExpiration, selectedIngredient);
   }
 
   return (
@@ -101,6 +145,41 @@ export function PantryItemForm({ initialName = '', initialExpirationDate = '', o
         <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
           {t('foodNameRequired')}
         </AppText>
+      ) : null}
+      {ingredientCatalogStatus === 'loading' && nameDraft.trim().length >= 2 && suggestions.length === 0 ? (
+        <AppText variant="muted">{t('ingredientSuggestionsLoading')}</AppText>
+      ) : null}
+      {ingredientCatalogStatus === 'error' && nameDraft.trim().length >= 2 && suggestions.length === 0 ? (
+        <AppText variant="muted">{t('ingredientSuggestionsUnavailable')}</AppText>
+      ) : null}
+      {ingredientCatalogStatus === 'ready' && nameDraft.trim().length >= 2 && suggestions.length === 0 && !selectedIngredient ? (
+        <AppText variant="muted">{t('ingredientSuggestionsEmpty')}</AppText>
+      ) : null}
+      {suggestions.length > 0 ? (
+        <View accessibilityLabel={t('ingredientSuggestionsLabel')} style={styles.suggestionGroup}>
+          <AppText style={styles.suggestionHeading} variant="muted">{t('ingredientSuggestionsTitle')}</AppText>
+          <View style={styles.suggestions}>
+            {suggestions.map((ingredient) => (
+              <Pressable
+                accessibilityLabel={ingredient.name}
+                accessibilityRole="button"
+                key={`${ingredient.provider}-${ingredient.id}`}
+                onPress={() => handleIngredientSelect(ingredient)}
+                style={({ pressed }) => [
+                  styles.suggestion,
+                  { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.72 : 1 },
+                ]}
+              >
+                <AppText style={styles.suggestionText}>
+                  {renderHighlightedIngredientName(ingredient.name, nameDraft, colors.accent)}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
+      {selectedIngredient ? (
+        <AppText style={styles.helper} variant="muted">{`${t('ingredientLinkedLabel')}: ${selectedIngredient.name}`}</AppText>
       ) : null}
 
       <AppText nativeID="expiration-date-label">{t('expirationDateLabel')}</AppText>
@@ -160,6 +239,20 @@ export function PantryItemForm({ initialName = '', initialExpirationDate = '', o
 
 const styles = StyleSheet.create({
   form: { gap: spacing.sm },
+  suggestionGroup: { gap: 2 },
+  suggestionHeading: { fontSize: 13, lineHeight: 18 },
+  suggestions: { gap: 2 },
+  suggestion: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 10,
+    borderCurve: 'continuous',
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  suggestionText: { fontSize: 15, lineHeight: 20 },
+  highlight: { fontWeight: '700' },
+  helper: { fontSize: 13, lineHeight: 18 },
   dateInputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dateInput: { flex: 1 },
   input: {

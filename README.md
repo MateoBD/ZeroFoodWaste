@@ -1,6 +1,6 @@
 # ZeroFoodWaste
 
-ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its planned purpose is to help households use food before it expires and reduce domestic food waste. The current screen is an early pantry: users can add food names, which are saved on the device and kept when the app restarts. There is no quantity, expiration logic, sorting, editing, deletion, or cloud sync yet.
+ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its purpose is to help households use food before it expires and reduce domestic food waste. The pantry lets users add and edit food names and expiration dates, keeps them on the device, and offers English TheMealDB ingredient suggestions while typing.
 
 ## Get started
 
@@ -19,7 +19,7 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 | --- | --- |
 | `src/app/` | Expo Router routes and native stack layout. Route files compose screens. |
 | `src/features/pantry/` | Pantry screen, form, loading/empty/error states, item rows, the `PantryItem` model, and the device-local pantry repository. Future inventory domain rules and flows belong here. |
-| `src/features/recipes/` | Recipe types, the `RecipeProvider` boundary, and a TheMealDB client scaffold. No requests or recipe screens are implemented yet. |
+| `src/features/recipes/` | Recipe types and provider boundaries, TheMealDB recipe access, the English ingredient catalogue, matching, and its device-local cache. Recipe screens are not implemented yet. |
 | `src/components/ui/` | Reusable button, text, and surface primitives. |
 | `src/theme/` | Light and dark semantic color and spacing tokens. |
 | `src/i18n/` | Typed English and Spanish messages and device-locale selection. |
@@ -29,7 +29,7 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 
 Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; statistics can get its own feature folder when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
 
-The recipe files prepare a future TheMealDB integration; they do not fetch or display recipes yet. The planned flow follows [TheMealDB's API guide](https://www.themealdb.com/documentation): search for one URL-encoded ingredient with `filter.php?i=`, then request full ingredients and instructions for a selected meal ID with `lookup.php?i=`. The filter result supplies summaries, so detail data needs the second request. Keep service loading, empty, and failure states within the recipe feature so pantry management remains available if TheMealDB is unavailable. TheMealDB is a proposed provider, and production access must be settled before shipping the integration.
+The recipe feature now fetches TheMealDB's English ingredient catalogue from `list.php?i=list`, caches it locally for autocomplete, and stores a selected ingredient's provider, TheMealDB ID, and canonical English name with the pantry item. Recipe searches will use that canonical name with `filter.php?i=`; the ID remains the stable provider reference. The add and edit forms use the same suggestions. A user can still save an unmatched food or continue offline, in which case its recipe reference is `null`. The future recipe flow follows [TheMealDB's API guide](https://www.themealdb.com/documentation): search for one URL-encoded ingredient, then request full ingredients and instructions for a selected meal ID with `lookup.php?i=`. The filter result supplies summaries, so detail data needs the second request. Keep service loading, empty, and failure states within the recipe feature so pantry management remains available if TheMealDB is unavailable. The development key is suitable for educational work; production access must be settled before shipping the integration.
 
 Device-local storage is the agreed choice for this early pantry. A missing storage key starts with an empty pantry. If the saved JSON, format version, or an item is invalid, the app shows a load error and offers retry. It keeps the original stored value and blocks additions until loading succeeds, so damaged data is not silently replaced. A failed save leaves a visible warning; a later successful save clears it.
 
