@@ -5,6 +5,12 @@ import type { RecipeSummary } from '../recipe';
 
 const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
 
+/**
+ * Builds a TheMealDB filter URL for one canonical ingredient name.
+ *
+ * @param ingredient - The ingredient name to URL-encode.
+ * @returns The complete ingredient-filter URL.
+ */
 function buildFilterByIngredientUrl(ingredient: string): string {
   const encodedIngredient = encodeURIComponent(ingredient);
   return `${BASE_URL}/filter.php?i=${encodedIngredient}`;
@@ -14,6 +20,15 @@ function buildIngredientListUrl(): string {
   return `${BASE_URL}/list.php?i=list`;
 }
 
+/**
+ * Searches TheMealDB for recipe summaries containing one ingredient.
+ *
+ * A null meals response is treated as a successful search with no matches.
+ *
+ * @param ingredient - The canonical ingredient name to search for.
+ * @returns Recipe summaries returned by TheMealDB.
+ * @throws When the network request fails, the response is unsuccessful, or JSON decoding fails.
+ */
 async function fetchMealsByIngredient(ingredient: string): Promise<RecipeSummary[]> {
     const url = buildFilterByIngredientUrl(ingredient);
     const response = await fetch(url);
@@ -44,6 +59,12 @@ type TheMealDbIngredient = {
   strIngredient: string;
 };
   
+/**
+ * Maps a TheMealDB filter record to the provider-neutral recipe summary.
+ *
+ * @param meal - The validated provider record to map.
+ * @returns A provider-neutral recipe summary.
+ */
 function toRecipeSummary(meal: TheMealDbMealSummary): RecipeSummary {
     return {
       id: meal.idMeal,
@@ -53,6 +74,13 @@ function toRecipeSummary(meal: TheMealDbMealSummary): RecipeSummary {
     };
 }
 
+/**
+ * TheMealDB recipe adapter. Search works; getById currently rejects because
+ * the detail lookup has not been implemented.
+ *
+ * Search rejects for network, HTTP, or response-decoding failures. Detail
+ * lookup always rejects with a not-implemented error in the current version.
+ */
 export const theMealDbRecipeProvider: RecipeProvider = {
     searchByIngredient(ingredient) {
       return fetchMealsByIngredient(ingredient);
@@ -62,6 +90,12 @@ export const theMealDbRecipeProvider: RecipeProvider = {
   },
 };
 
+/**
+ * Provides a validated, deduplicated, and sorted English ingredient catalogue.
+ *
+ * The provider returns an empty array when TheMealDB returns no catalogue.
+ * Requests reject for network, HTTP, or response-decoding failures.
+ */
 export const theMealDbIngredientProvider: IngredientCatalogProvider = {
   async listIngredients(): Promise<IngredientCatalogEntry[]> {
     const response = await fetch(buildIngredientListUrl());
