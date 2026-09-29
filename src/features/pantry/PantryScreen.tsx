@@ -7,6 +7,8 @@ import { AppText } from '@/components/ui/AppText';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { IngredientReference } from '@/features/recipes/ingredient';
+import { useIngredientCatalog } from '@/features/recipes/useIngredientCatalog';
 
 import { PantryEmptyState } from './PantryEmptyState';
 import { PantryHeader } from './PantryHeader';
@@ -31,6 +33,7 @@ export function PantryScreen() {
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const ingredientCatalog = useIngredientCatalog(isFormVisible);
 
   const editingItem = items.find((item) => item.id === editingItemId);
 
@@ -49,9 +52,10 @@ export function PantryScreen() {
     setEditingItemId(null);
   }
 
-  function handleSave(name: string, expirationDate: string) {
-    if (editingItemId) updateItem(editingItemId, name, expirationDate);
-    else addItem(name, expirationDate);
+  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
+    const draft = { name, expirationDate, recipeIngredient };
+    if (editingItemId) updateItem(editingItemId, draft);
+    else addItem(draft);
     setIsFormVisible(false);
     setEditingItemId(null);
   }
@@ -103,6 +107,9 @@ export function PantryScreen() {
       <PantryItemFormModal
         initialExpirationDate={editingItem?.expirationDate}
         initialName={editingItem?.name}
+        initialRecipeIngredient={editingItem?.recipeIngredient}
+        ingredientCatalog={ingredientCatalog.items}
+        ingredientCatalogStatus={ingredientCatalog.status}
         isVisible={isFormVisible}
         mode={editingItemId ? 'edit' : 'add'}
         onCancel={handleCloseForm}

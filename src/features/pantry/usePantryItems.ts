@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 
 import { createPantryItem, type PantryItem } from './pantryItem';
 import { asyncStoragePantryRepository, type PantryRepository } from './pantryRepository';
+import type { IngredientReference } from '@/features/recipes/ingredient';
 
 export type PantryLoadStatus = 'loading' | 'ready' | 'error';
+export type PantryItemDraft = Readonly<{
+  name: string;
+  expirationDate: string;
+  recipeIngredient: IngredientReference | null;
+}>;
 
 export function usePantryItems(repository: PantryRepository = asyncStoragePantryRepository) {
   const [items, setItems] = useState<PantryItem[]>([]);
@@ -47,9 +53,12 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
 
   // Adding is only offered once loading succeeds, so a save never overwrites
   // stored items that have not been read yet.
-  function addItem(name: string, expirationDate: string) {
+  function addItem(draft: PantryItemDraft) {
     if (statusRef.current !== 'ready') return;
-    const nextItems = [...itemsRef.current, createPantryItem(name, expirationDate)];
+    const nextItems = [
+      ...itemsRef.current,
+      createPantryItem(draft.name, draft.expirationDate, draft.recipeIngredient),
+    ];
 
     itemsRef.current = nextItems;
     setItems(nextItems);
@@ -61,10 +70,12 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
       );
   }
 
-  function updateItem(id: string, name: string, expirationDate: string) {
+  function updateItem(id: string, draft: PantryItemDraft) {
     if (statusRef.current !== 'ready') return;
     const nextItems = itemsRef.current.map((item) =>
-      item.id === id ? { ...item, name, expirationDate } : item,
+      item.id === id
+        ? { ...item, name: draft.name, expirationDate: draft.expirationDate, recipeIngredient: draft.recipeIngredient }
+        : item,
     );
 
     itemsRef.current = nextItems;

@@ -6,6 +6,14 @@ import { parseStoredPantry } from './pantryStorageCodec';
 const bread = {
   id: 'item-1',
   name: 'Bread',
+  recipeIngredient: null,
+  expirationDate: '2026-10-15',
+  createdAt: '2026-09-01T10:00:00.000Z',
+};
+
+const legacyBread = {
+  id: 'item-1',
+  name: 'Bread',
   expirationDate: '2026-10-15',
   createdAt: '2026-09-01T10:00:00.000Z',
 };
@@ -15,14 +23,22 @@ describe('parseStoredPantry', () => {
     expect(parseStoredPantry(null)).toEqual([]);
   });
 
-  it('reads items from the current storage format', () => {
-    expect(parseStoredPantry(JSON.stringify({ version: 1, items: [bread] }))).toEqual([bread]);
+  it('migrates legacy items without a recipe reference', () => {
+    expect(parseStoredPantry(JSON.stringify({ version: 1, items: [legacyBread] }))).toEqual([bread]);
+  });
+
+  it('reads linked items from the current storage format', () => {
+    const linkedBread = {
+      ...bread,
+      recipeIngredient: { provider: 'themealdb', id: '1', name: 'Bread' },
+    };
+    expect(parseStoredPantry(JSON.stringify({ version: 2, items: [linkedBread] }))).toEqual([linkedBread]);
   });
 
   it('rejects unreadable and unknown data', () => {
     expect(() => parseStoredPantry('not json')).toThrow();
     expect(() => parseStoredPantry(JSON.stringify([bread]))).toThrow();
-    expect(() => parseStoredPantry(JSON.stringify({ version: 2, items: [bread] }))).toThrow();
+    expect(() => parseStoredPantry(JSON.stringify({ version: 3, items: [bread] }))).toThrow();
   });
 
   it('rejects an entire pantry with a malformed item or impossible calendar date', () => {

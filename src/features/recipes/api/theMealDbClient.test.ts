@@ -1,4 +1,4 @@
-import { theMealDbRecipeProvider } from './theMealDbClient';
+import { theMealDbIngredientProvider, theMealDbRecipeProvider } from './theMealDbClient';
 
 describe('theMealDbRecipeProvider', () => {
   afterEach(() => {
@@ -45,5 +45,34 @@ describe('theMealDbRecipeProvider', () => {
     } as Response);
 
     await expect(theMealDbRecipeProvider.searchByIngredient('chicken')).rejects.toThrow();
+  });
+
+  it('maps the English ingredient catalogue', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        meals: [
+          { idIngredient: '2', strIngredient: 'Milk' },
+          { idIngredient: '1', strIngredient: 'Chicken' },
+          { idIngredient: '2', strIngredient: 'Duplicate' },
+        ],
+      }),
+    } as Response);
+
+    await expect(theMealDbIngredientProvider.listIngredients()).resolves.toEqual([
+      { provider: 'themealdb', id: '1', name: 'Chicken' },
+      { provider: 'themealdb', id: '2', name: 'Milk' },
+    ]);
+  });
+
+  it('returns no ingredients when the catalogue is empty', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ meals: null }),
+    } as Response);
+
+    await expect(theMealDbIngredientProvider.listIngredients()).resolves.toEqual([]);
   });
 });

@@ -34,6 +34,10 @@ async function addFood(
 }
 
 describe('PantryScreen', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(async () => {
     jest.clearAllMocks();
     mockUseLocales.mockReturnValue([{ languageCode: 'en' }]);
@@ -183,6 +187,59 @@ describe('PantryScreen', () => {
 
     expect(screen.getByText('Bread')).toBeTruthy();
     expect(screen.getByText(`Expires: ${today}`)).toBeTruthy();
+  });
+
+  it('suggests an English ingredient and persists its TheMealDB reference', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        meals: [
+          { idIngredient: '1', strIngredient: 'Chicken' },
+          { idIngredient: '2', strIngredient: 'Chicken Stock' },
+        ],
+      }),
+    } as Response);
+
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'chick');
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Chicken' }));
+    expect(screen.getByLabelText('Food name').props.value).toBe('Chicken');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored.recipeIngredient).toEqual({ provider: 'themealdb', id: '1', name: 'Chicken' });
+    });
+  });
+
+  it('clears the TheMealDB reference when an edited name changes', async () => {
+    await AsyncStorage.setItem(
+      PANTRY_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        items: [{
+          id: 'item-1',
+          name: 'Chicken',
+          recipeIngredient: { provider: 'themealdb', id: '1', name: 'Chicken' },
+          expirationDate: '2999-10-15',
+          createdAt: '2026-09-01T10:00:00.000Z',
+        }],
+      }),
+    );
+
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Chicken Soup');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored.recipeIngredient).toBeNull();
+    });
   });
 
   it('opens the picker at today and prevents earlier selections', async () => {

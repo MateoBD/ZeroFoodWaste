@@ -4,6 +4,8 @@ import { AppText } from '@/components/ui/AppText';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { IngredientCatalogEntry, IngredientReference } from '@/features/recipes/ingredient';
+import type { IngredientCatalogStatus } from '@/features/recipes/useIngredientCatalog';
 
 import { PantryItemForm } from './PantryItemForm';
 
@@ -11,9 +13,12 @@ type PantryItemFormModalProps = {
   mode: 'add' | 'edit';
   initialName?: string;
   initialExpirationDate?: string;
+  initialRecipeIngredient?: IngredientReference | null;
+  ingredientCatalog: readonly IngredientCatalogEntry[];
+  ingredientCatalogStatus: IngredientCatalogStatus;
   isVisible: boolean;
   onCancel: () => void;
-  onSave: (name: string, expirationDate: string) => void;
+  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
 
 export function PantryItemFormModal({
@@ -21,6 +26,9 @@ export function PantryItemFormModal({
   mode,
   initialName,
   initialExpirationDate,
+  initialRecipeIngredient,
+  ingredientCatalog,
+  ingredientCatalogStatus,
   onCancel,
   onSave,
 }: PantryItemFormModalProps) {
@@ -53,6 +61,9 @@ export function PantryItemFormModal({
           <PantryItemForm
             initialExpirationDate={initialExpirationDate}
             initialName={initialName}
+            initialRecipeIngredient={initialRecipeIngredient}
+            ingredientCatalog={ingredientCatalog}
+            ingredientCatalogStatus={ingredientCatalogStatus}
             onCancel={onCancel}
             onSave={onSave}
           />
