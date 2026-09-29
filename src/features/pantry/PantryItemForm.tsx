@@ -10,10 +10,11 @@ import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate
 import { ExpirationDatePicker } from './ExpirationDatePicker';
 
 type PantryItemFormProps = {
+  onCancel: () => void;
   onSave: (name: string, expirationDate: string) => void;
 };
 
-export function PantryItemForm({ onSave }: PantryItemFormProps) {
+export function PantryItemForm({ onCancel, onSave }: PantryItemFormProps) {
   const [nameDraft, setNameDraft] = useState('');
   const [expirationDateDraft, setExpirationDateDraft] = useState('');
   const [hasNameError, setHasNameError] = useState(false);
@@ -143,9 +144,14 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
         </AppText>
       ) : null}
 
-      <Button onPress={handleSubmit}>
-        <ButtonText>{t('save')}</ButtonText>
-      </Button>
+      <View style={styles.actions}>
+        <Button onPress={onCancel} style={styles.action}>
+          <ButtonText>{t('cancel')}</ButtonText>
+        </Button>
+        <Button onPress={handleSubmit} style={styles.action}>
+          <ButtonText>{t('save')}</ButtonText>
+        </Button>
+      </View>
     </View>
   );
 }
@@ -163,4 +169,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     fontSize: 16,
   },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  action: { flex: 1 },
 });

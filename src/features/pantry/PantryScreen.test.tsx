@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
 import { TextInput } from 'react-native';
 
@@ -73,18 +73,41 @@ describe('PantryScreen', () => {
     const screen = await renderLoadedPantry();
     const addButton = screen.getByRole('button', { name: 'Add food' });
 
-    expect(addButton.props.accessibilityState).toEqual({ expanded: false });
+    expect(screen.getByText('+')).toBeTruthy();
     await fireEvent.press(addButton);
+    const modal = screen.getByTestId('pantry-item-form-modal');
+    expect(modal.props.presentationStyle).toBe('formSheet');
+    expect(modal.props.allowSwipeDismissal).toBe(true);
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Bread')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), '   ');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Enter a food name.')).toBeTruthy();
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' });
-    expect(cancelButton.props.accessibilityState).toEqual({ expanded: true });
     await fireEvent.press(cancelButton);
+    expect(screen.queryByTestId('pantry-item-form-modal')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
 
     expect(screen.getByLabelText('Food name').props.value).toBe('');
     expect(screen.getByLabelText('Expiration date').props.value).toBe('');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('dismisses the modal and discards its draft', async () => {
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
+    await fireEvent(screen.getByTestId('pantry-item-form-modal'), 'requestClose');
+
+    expect(screen.queryByLabelText('Food name')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    expect(screen.getByLabelText('Food name').props.value).toBe('');
   });
 
   it('moves focus from the name field to the expiration field on Next', async () => {
@@ -188,8 +211,7 @@ describe('PantryScreen', () => {
       { nativeEvent: { timestamp: 0, utcOffset: 0 } },
       new Date(2999, 9, 20, 12),
     );
-    const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' });
-    await fireEvent.press(cancelButtons[cancelButtons.length - 1]);
+    await fireEvent.press(screen.getByTestId('expiration-date-picker-cancel'));
 
     expect(screen.getByLabelText('Expiration date').props.value).toBe('2999-10-15');
     expect(screen.queryByTestId('expiration-date-picker')).toBeNull();
@@ -314,6 +336,21 @@ describe('PantryScreen', () => {
     expect(await screen.findByText('Rice')).toBeTruthy();
     expect(screen.getByText('Expires: 2027-01-31')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add food' })).toBeTruthy();
+  });
+
+  it('does not offer adding while the pantry is loading', async () => {
+    let finishLoad!: (value: string | null) => void;
+    jest.mocked(AsyncStorage.getItem).mockImplementationOnce(
+      () => new Promise((resolve) => { finishLoad = resolve; }),
+    );
+
+    const screen = await render(<PantryScreen />);
+
+    expect(screen.getByText('Loading your pantry…')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add food' })).toBeNull();
+
+    await act(async () => finishLoad(null));
+    expect(await screen.findByRole('button', { name: 'Add food' })).toBeTruthy();
   });
 
   it('keeps damaged storage unchanged and blocks additions during load errors', async () => {

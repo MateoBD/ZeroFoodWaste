@@ -85,7 +85,11 @@ export function ExpirationDatePicker({ onChange, value }: ExpirationDatePickerPr
             value={pendingDate ?? selectedDate}
           />
           <View style={styles.actions}>
-            <Button onPress={() => setPendingDate(null)} style={styles.action}>
+            <Button
+              onPress={() => setPendingDate(null)}
+              style={styles.action}
+              testID="expiration-date-picker-cancel"
+            >
               <ButtonText>{t('cancel')}</ButtonText>
             </Button>
             <Button onPress={handleConfirm} style={styles.action}>

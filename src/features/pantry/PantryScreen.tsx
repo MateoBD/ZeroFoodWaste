@@ -1,12 +1,16 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText } from '@/components/ui/AppText';
+import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 import { PantryEmptyState } from './PantryEmptyState';
 import { PantryHeader } from './PantryHeader';
+import { PantryItemFormModal } from './PantryItemFormModal';
 import { PantryItemRow } from './PantryItemRow';
 import { PantryLoadState } from './PantryLoadState';
 import type { PantryItem } from './pantryItem';
@@ -27,10 +31,16 @@ function ItemSeparator() {
 export function PantryScreen() {
   const { items, status, hasSaveError, addItem, retryLoad } = usePantryItems();
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const t = useMessages();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  function handleToggleForm() {
-    setIsFormVisible((isVisible) => !isVisible);
+  function handleOpenForm() {
+    setIsFormVisible(true);
+  }
+
+  function handleCloseForm() {
+    setIsFormVisible(false);
   }
 
   function handleSave(name: string, expirationDate: string) {
@@ -50,15 +60,33 @@ export function PantryScreen() {
           status === 'ready' ? PantryEmptyState : <PantryLoadState onRetry={retryLoad} status={status} />
         }
         ListHeaderComponent={
-          <PantryHeader
-            canAddItems={status === 'ready'}
-            hasSaveError={hasSaveError}
-            isFormVisible={isFormVisible}
-            onSave={handleSave}
-            onToggleForm={handleToggleForm}
-          />
+          <PantryHeader hasSaveError={hasSaveError} />
         }
         renderItem={renderItem}
+      />
+      {status === 'ready' ? (
+        <Pressable
+          accessibilityLabel={t('addFood')}
+          accessibilityRole="button"
+          onPress={handleOpenForm}
+          style={[
+            styles.addButton,
+            {
+              backgroundColor: colors.accent,
+              bottom: insets.bottom + spacing.md,
+              right: insets.right + spacing.md,
+            },
+          ]}
+        >
+          <AppText accessible={false} style={[styles.addButtonText, { color: colors.accentText }]}>
+            +
+          </AppText>
+        </Pressable>
+      ) : null}
+      <PantryItemFormModal
+        isVisible={isFormVisible}
+        onCancel={handleCloseForm}
+        onSave={handleSave}
       />
     </View>
   );
@@ -66,6 +94,17 @@ export function PantryScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  listContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl },
+  listContent: { paddingHorizontal: spacing.md, paddingBottom: 56 + spacing.xl },
   separator: { height: spacing.sm },
+  addButton: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.24)',
+  },
+  addButtonText: { fontSize: 32, lineHeight: 36, fontWeight: '400' },
 });
