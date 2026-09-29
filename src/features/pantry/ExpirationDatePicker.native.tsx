@@ -16,6 +16,15 @@ type ExpirationDatePickerProps = {
   value: string;
 };
 
+/**
+ * Renders a control that opens the native date picker.
+ *
+ * Invalid or past values fall back to today. The callback receives a local
+ * YYYY-MM-DD value after the user selects a date.
+ *
+ * @param props - The current date value and change callback.
+ * @returns The native expiration-date picker control.
+ */
 export function ExpirationDatePicker({ onChange, value }: ExpirationDatePickerProps) {
   const [pendingDate, setPendingDate] = useState<Date | null>(null);
   const t = useMessages();

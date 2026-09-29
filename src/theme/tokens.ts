@@ -1,3 +1,6 @@
+/**
+ * Defines the shared spacing scale in points.
+ */
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -6,6 +9,9 @@ export const spacing = {
   xl: 32,
 } as const;
 
+/**
+ * Defines semantic colors for light and dark appearance.
+ */
 export const colors = {
   light: {
     background: '#F7F8F2',

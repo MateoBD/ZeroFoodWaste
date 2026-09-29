@@ -3,6 +3,12 @@ import type { PantryItem } from './pantryItem';
 
 type StoredPantry = { version: 2; items: PantryItem[] };
 
+/**
+ * Checks whether stored data is a complete TheMealDB ingredient reference.
+ *
+ * @param value - The unknown stored value to inspect.
+ * @returns Whether the value has a provider, non-empty ID, and non-empty name.
+ */
 function isIngredientReference(value: unknown): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const reference = value as Record<string, unknown>;
@@ -13,6 +19,15 @@ function isIngredientReference(value: unknown): boolean {
   );
 }
 
+/**
+ * Checks whether stored data is a valid pantry item for its document version.
+ *
+ * Version 1 records do not contain recipe ingredient references.
+ *
+ * @param value - The unknown stored item to inspect.
+ * @param hasRecipeIngredient - Whether the storage version includes recipe references.
+ * @returns Whether the value is a valid pantry item.
+ */
 function isPantryItem(value: unknown, hasRecipeIngredient: boolean): value is PantryItem {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
 
@@ -28,12 +43,26 @@ function isPantryItem(value: unknown, hasRecipeIngredient: boolean): value is Pa
   );
 }
 
+/**
+ * Checks whether a timestamp round-trips to its canonical ISO spelling.
+ *
+ * @param value - The timestamp string to inspect.
+ * @returns Whether the value is a real canonical ISO timestamp.
+ */
 function isCanonicalTimestamp(value: string): boolean {
   const date = new Date(value);
   return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
-// Invalid stored data must remain on disk for recovery; callers surface the error.
+/**
+ * Reads a v1 or v2 pantry document, adding a null recipe reference to v1 items.
+ *
+ * A missing document yields an empty pantry. Invalid data stays on disk for recovery.
+ *
+ * @param raw - Stored JSON, or null when no pantry has been saved.
+ * @returns Valid pantry items, migrated in memory to the current shape.
+ * @throws Error when JSON, version, item data, or item IDs are invalid.
+ */
 export function parseStoredPantry(raw: string | null): PantryItem[] {
   if (raw === null) return [];
 
@@ -66,6 +95,12 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
   ) as PantryItem[];
 }
 
+/**
+ * Serializes pantry items as a version 2 storage document.
+ *
+ * @param items - The pantry items to store.
+ * @returns The versioned pantry document as JSON.
+ */
 export function encodeStoredPantry(items: readonly PantryItem[]): string {
   const data: StoredPantry = { version: 2, items: [...items] };
   return JSON.stringify(data);

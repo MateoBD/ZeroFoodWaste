@@ -4,6 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useMessages } from '@/i18n/useMessages';
 import { useTheme } from '@/theme/useTheme';
 
+/**
+ * Configures the theme-aware native stack and status bar.
+ *
+ * @returns The application's root navigation layout.
+ */
 export default function RootLayout() {
   const { colors } = useTheme();
   const t = useMessages();

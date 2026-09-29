@@ -4,8 +4,19 @@ import { theMealDbIngredientProvider } from './api/theMealDbClient';
 import type { IngredientCatalogEntry } from './ingredient';
 import { asyncStorageIngredientCatalog, INGREDIENT_CATALOG_MAX_AGE_MS } from './ingredientCatalogStorage';
 
+/**
+ * Represents the state of ingredient suggestions while the pantry form is open.
+ */
 export type IngredientCatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+/**
+ * Loads cached suggestions when enabled, refreshing stale data from TheMealDB.
+ *
+ * A service or cache-write failure preserves cached suggestions when available.
+ *
+ * @param enabled - Whether the pantry form currently needs ingredient suggestions.
+ * @returns The available catalogue entries and their current load status.
+ */
 export function useIngredientCatalog(enabled: boolean) {
   const [items, setItems] = useState<IngredientCatalogEntry[]>([]);
   const [status, setStatus] = useState<IngredientCatalogStatus>('idle');

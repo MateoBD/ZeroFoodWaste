@@ -1,5 +1,14 @@
 import type { IngredientCatalogEntry } from './ingredient';
 
+/**
+ * Normalizes user and catalogue text for deterministic ingredient matching.
+ *
+ * Matching ignores case and accents, converts punctuation to spaces, and
+ * collapses repeated whitespace.
+ *
+ * @param value - The text to normalize.
+ * @returns A lowercase, accent-free search value.
+ */
 export function normalizeIngredientQuery(value: string): string {
   return value
     .normalize('NFKD')
@@ -10,6 +19,13 @@ export function normalizeIngredientQuery(value: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * Calculates the Levenshtein edit distance between two normalized strings.
+ *
+ * @param first - The first normalized string.
+ * @param second - The second normalized string.
+ * @returns The minimum number of single-character edits between the strings.
+ */
 function levenshteinDistance(first: string, second: string): number {
   const previous = Array.from({ length: second.length + 1 }, (_, index) => index);
 
@@ -28,6 +44,16 @@ function levenshteinDistance(first: string, second: string): number {
   return previous[second.length];
 }
 
+/**
+ * Scores one normalized ingredient against a normalized query.
+ *
+ * Exact, prefix, word-prefix, substring, and nearby spelling matches receive
+ * progressively lower priority.
+ *
+ * @param query - The normalized user query.
+ * @param ingredient - The normalized catalogue ingredient.
+ * @returns A lower-is-better score, or null when the ingredient does not match.
+ */
 function scoreIngredient(query: string, ingredient: string): number | null {
   if (ingredient === query) return 0;
   if (ingredient.startsWith(query)) return 10 + ingredient.length - query.length;
@@ -41,6 +67,16 @@ function scoreIngredient(query: string, ingredient: string): number | null {
   return distance <= maximumDistance ? 40 + distance : null;
 }
 
+/**
+ * Finds catalogue ingredients that best match what the user typed.
+ *
+ * Matching ignores case and accents, and tolerates small spelling mistakes.
+ *
+ * @param query - The food name typed by the user.
+ * @param ingredients - The available TheMealDB ingredient catalogue.
+ * @param limit - Maximum number of suggestions to return. Defaults to 5.
+ * @returns Matching ingredients, ordered from most to least relevant.
+ */
 export function matchIngredients(
   query: string,
   ingredients: readonly IngredientCatalogEntry[],

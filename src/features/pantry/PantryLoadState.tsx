@@ -11,6 +11,12 @@ type PantryLoadStateProps = {
   onRetry: () => void;
 };
 
+/**
+ * Shows the initial loading state or a retryable load error.
+ *
+ * @param props - The active load state and retry callback.
+ * @returns A localized loading indicator or error action.
+ */
 export function PantryLoadState({ status, onRetry }: PantryLoadStateProps) {
   const t = useMessages();
   const { colors } = useTheme();
