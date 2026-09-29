@@ -6,7 +6,8 @@ import { Button, ButtonText } from '@/components/ui/Button';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-import { isValidCalendarDate } from './calendarDate';
+import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate';
+import { ExpirationDatePicker } from './ExpirationDatePicker';
 
 type PantryItemFormProps = {
   onSave: (name: string, expirationDate: string) => void;
@@ -16,7 +17,9 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
   const [nameDraft, setNameDraft] = useState('');
   const [expirationDateDraft, setExpirationDateDraft] = useState('');
   const [hasNameError, setHasNameError] = useState(false);
-  const [expirationError, setExpirationError] = useState<'required' | 'invalid' | null>(null);
+  const [expirationError, setExpirationError] = useState<'required' | 'invalid' | 'past' | null>(
+    null,
+  );
   const expirationInputRef = useRef<TextInput>(null);
   const t = useMessages();
   const { colors } = useTheme();
@@ -50,6 +53,9 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
       isFormValid = false;
     } else if (!isValidCalendarDate(trimmedExpiration)) {
       setExpirationError('invalid');
+      isFormValid = false;
+    } else if (!isTodayOrFutureCalendarDate(trimmedExpiration)) {
+      setExpirationError('past');
       isFormValid = false;
     }
 
@@ -95,28 +101,32 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
       ) : null}
 
       <AppText nativeID="expiration-date-label">{t('expirationDateLabel')}</AppText>
-      <TextInput
-        accessibilityLabel={t('expirationDateLabel')}
-        accessibilityLabelledBy="expiration-date-label"
-        aria-invalid={expirationError !== null}
-        autoCapitalize="none"
-        keyboardType="numbers-and-punctuation"
-        onChangeText={handleExpirationChange}
-        onSubmitEditing={handleSubmit}
-        placeholder={t('expirationDatePlaceholder')}
-        placeholderTextColor={colors.mutedText}
-        ref={expirationInputRef}
-        returnKeyType="done"
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.surface,
-            borderColor: expirationError ? colors.errorText : colors.border,
-            color: colors.text,
-          },
-        ]}
-        value={expirationDateDraft}
-      />
+      <View style={styles.dateInputRow}>
+        <TextInput
+          accessibilityLabel={t('expirationDateLabel')}
+          accessibilityLabelledBy="expiration-date-label"
+          aria-invalid={expirationError !== null}
+          autoCapitalize="none"
+          keyboardType="numbers-and-punctuation"
+          onChangeText={handleExpirationChange}
+          onSubmitEditing={handleSubmit}
+          placeholder={t('expirationDatePlaceholder')}
+          placeholderTextColor={colors.mutedText}
+          ref={expirationInputRef}
+          returnKeyType="done"
+          style={[
+            styles.input,
+            styles.dateInput,
+            {
+              backgroundColor: colors.surface,
+              borderColor: expirationError ? colors.errorText : colors.border,
+              color: colors.text,
+            },
+          ]}
+          value={expirationDateDraft}
+        />
+        <ExpirationDatePicker onChange={handleExpirationChange} value={expirationDateDraft} />
+      </View>
       {expirationError === 'required' ? (
         <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
           {t('expirationDateRequired')}
@@ -125,6 +135,11 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
       {expirationError === 'invalid' ? (
         <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
           {t('expirationDateInvalid')}
+        </AppText>
+      ) : null}
+      {expirationError === 'past' ? (
+        <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
+          {t('expirationDatePast')}
         </AppText>
       ) : null}
 
@@ -137,6 +152,8 @@ export function PantryItemForm({ onSave }: PantryItemFormProps) {
 
 const styles = StyleSheet.create({
   form: { gap: spacing.sm },
+  dateInputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  dateInput: { flex: 1 },
   input: {
     minHeight: 48,
     borderWidth: 1,
