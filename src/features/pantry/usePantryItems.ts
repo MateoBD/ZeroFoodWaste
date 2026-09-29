@@ -4,13 +4,28 @@ import { createPantryItem, type PantryItem } from './pantryItem';
 import { asyncStoragePantryRepository, type PantryRepository } from './pantryRepository';
 import type { IngredientReference } from '@/features/recipes/ingredient';
 
+/**
+ * Represents the load state of the device-local pantry.
+ */
 export type PantryLoadStatus = 'loading' | 'ready' | 'error';
+
+/**
+ * Contains the editable fields accepted when adding or updating a pantry item.
+ */
 export type PantryItemDraft = Readonly<{
   name: string;
   expirationDate: string;
   recipeIngredient: IngredientReference | null;
 }>;
 
+/**
+ * Loads pantry items and queues writes in order after local add or edit actions.
+ *
+ * A load failure blocks edits; a failed save leaves the local item visible and sets hasSaveError.
+ *
+ * @param repository - The pantry storage implementation. Defaults to AsyncStorage.
+ * @returns Pantry data, state flags, and actions for loading, adding, and editing items.
+ */
 export function usePantryItems(repository: PantryRepository = asyncStoragePantryRepository) {
   const [items, setItems] = useState<PantryItem[]>([]);
   const [status, setStatus] = useState<PantryLoadStatus>('loading');

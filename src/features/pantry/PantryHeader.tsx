@@ -8,6 +8,12 @@ type PantryHeaderProps = {
   hasSaveError: boolean;
 };
 
+/**
+ * Displays the pantry heading and any device-storage save warning.
+ *
+ * @param props - Whether the latest device-local save failed.
+ * @returns The localized pantry header.
+ */
 export function PantryHeader({ hasSaveError }: PantryHeaderProps) {
   const t = useMessages();
 

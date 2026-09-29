@@ -4,6 +4,11 @@ import { AppText } from '@/components/ui/AppText';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 
+/**
+ * Displays the message shown after an empty pantry loads successfully.
+ *
+ * @returns The localized empty-pantry state.
+ */
 export function PantryEmptyState() {
   const t = useMessages();
 

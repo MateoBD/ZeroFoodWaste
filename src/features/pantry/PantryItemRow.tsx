@@ -15,6 +15,12 @@ type PantryItemRowProps = {
   id: string;
 };
 
+/**
+ * Renders an accessible pantry item row with an edit action.
+ *
+ * @param props - The item identity, food name, expiration date, and edit callback.
+ * @returns A memoized pantry row.
+ */
 export const PantryItemRow = memo(function PantryItemRow({
   expirationDate,
   name,

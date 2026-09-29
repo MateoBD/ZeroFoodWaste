@@ -21,6 +21,12 @@ type PantryItemFormModalProps = {
   onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
 
+/**
+ * Presents the shared add or edit form in a modal with scrollable content.
+ *
+ * @param props - Modal state, initial item values, catalogue state, and callbacks.
+ * @returns The form modal when visible, or null when hidden.
+ */
 export function PantryItemFormModal({
   isVisible,
   mode,
