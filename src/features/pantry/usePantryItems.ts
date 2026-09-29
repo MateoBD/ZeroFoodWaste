@@ -61,5 +61,21 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
       );
   }
 
-  return { items, status, hasSaveError, addItem, retryLoad };
+  function updateItem(id: string, name: string, expirationDate: string) {
+    if (statusRef.current !== 'ready') return;
+    const nextItems = itemsRef.current.map((item) =>
+      item.id === id ? { ...item, name, expirationDate } : item,
+    );
+
+    itemsRef.current = nextItems;
+    setItems(nextItems);
+    writeQueue.current = writeQueue.current
+      .then(() => repository.saveItems(nextItems))
+      .then(
+        () => setHasSaveError(false),
+        () => setHasSaveError(true),
+      );
+  }
+
+  return { items, status, hasSaveError, addItem, updateItem, retryLoad };
 }

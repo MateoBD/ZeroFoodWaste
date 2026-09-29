@@ -268,6 +268,51 @@ describe('PantryScreen', () => {
     expect(screen.queryByText('Your pantry is empty. Add a food to get started.')).toBeNull();
   });
 
+  it('edits the selected item, preserves its ID, and persists the change', async () => {
+    const screen = await renderLoadedPantry();
+    await addFood(screen, 'Bread', '2999-10-10');
+    const before = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit food' }));
+    expect(screen.getByRole('header', { name: 'Edit food' })).toBeTruthy();
+    expect(screen.getByLabelText('Food name').props.value).toBe('Bread');
+    expect(screen.getByLabelText('Expiration date').props.value).toBe('2999-10-10');
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Whole wheat bread');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-20');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(screen.getByText('Whole wheat bread')).toBeTruthy();
+    expect(screen.queryByText('Bread')).toBeNull();
+    await waitFor(async () => {
+      const after = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(after).toMatchObject({ id: before.id, createdAt: before.createdAt, name: 'Whole wheat bread', expirationDate: '2999-10-20' });
+    });
+  });
+
+  it('discards edit drafts when canceled', async () => {
+    const screen = await renderLoadedPantry();
+    await addFood(screen, 'Bread', '2999-10-10');
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Changed');
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.queryByText('Changed')).toBeNull();
+  });
+
+  it('uses the Spanish edit label', async () => {
+    mockUseLocales.mockReturnValue([{ languageCode: 'es' }]);
+    const screen = await renderLoadedPantry('Añadir alimento');
+    await fireEvent.press(screen.getByRole('button', { name: 'Añadir alimento' }));
+    await fireEvent.changeText(screen.getByLabelText('Nombre del alimento'), 'Pan');
+    await fireEvent.changeText(screen.getByLabelText('Fecha de caducidad'), '2999-10-10');
+    await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(screen.getByRole('button', { name: 'Editar alimento' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Editar alimento' }));
+    expect(screen.getByRole('header', { name: 'Editar alimento' })).toBeTruthy();
+  });
+
   it('keeps saved items and expiration dates after the app restarts', async () => {
     const firstSession = await renderLoadedPantry();
     await addFood(firstSession, 'Bread', '2999-10-10');

@@ -1,5 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,33 +20,50 @@ function keyExtractor(item: PantryItem) {
   return item.id;
 }
 
-function renderItem({ item }: ListRenderItemInfo<PantryItem>) {
-  return <PantryItemRow expirationDate={item.expirationDate} name={item.name} />;
-}
-
 function ItemSeparator() {
   return <View style={styles.separator} />;
 }
 
 export function PantryScreen() {
-  const { items, status, hasSaveError, addItem, retryLoad } = usePantryItems();
+  const { items, status, hasSaveError, addItem, updateItem, retryLoad } = usePantryItems();
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const editingItem = items.find((item) => item.id === editingItemId);
+
   function handleOpenForm() {
+    setEditingItemId(null);
     setIsFormVisible(true);
   }
 
+  const handleEdit = useCallback((id: string) => {
+    setEditingItemId(id);
+    setIsFormVisible(true);
+  }, []);
+
   function handleCloseForm() {
     setIsFormVisible(false);
+    setEditingItemId(null);
   }
 
   function handleSave(name: string, expirationDate: string) {
-    addItem(name, expirationDate);
+    if (editingItemId) updateItem(editingItemId, name, expirationDate);
+    else addItem(name, expirationDate);
     setIsFormVisible(false);
+    setEditingItemId(null);
   }
+
+  const renderItem = useCallback(({ item }: ListRenderItemInfo<PantryItem>) => (
+    <PantryItemRow
+      expirationDate={item.expirationDate}
+      id={item.id}
+      name={item.name}
+      onEdit={handleEdit}
+    />
+  ), [handleEdit]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -84,7 +101,10 @@ export function PantryScreen() {
         </Pressable>
       ) : null}
       <PantryItemFormModal
+        initialExpirationDate={editingItem?.expirationDate}
+        initialName={editingItem?.name}
         isVisible={isFormVisible}
+        mode={editingItemId ? 'edit' : 'add'}
         onCancel={handleCloseForm}
         onSave={handleSave}
       />
