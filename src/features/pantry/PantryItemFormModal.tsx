@@ -8,6 +8,9 @@ import { useTheme } from '@/theme/useTheme';
 import { PantryItemForm } from './PantryItemForm';
 
 type PantryItemFormModalProps = {
+  mode: 'add' | 'edit';
+  initialName?: string;
+  initialExpirationDate?: string;
   isVisible: boolean;
   onCancel: () => void;
   onSave: (name: string, expirationDate: string) => void;
@@ -15,6 +18,9 @@ type PantryItemFormModalProps = {
 
 export function PantryItemFormModal({
   isVisible,
+  mode,
+  initialName,
+  initialExpirationDate,
   onCancel,
   onSave,
 }: PantryItemFormModalProps) {
@@ -42,9 +48,14 @@ export function PantryItemFormModal({
           keyboardShouldPersistTaps="handled"
         >
           <AppText accessibilityRole="header" variant="title">
-            {t('addFood')}
+            {t(mode === 'edit' ? 'editFood' : 'addFood')}
           </AppText>
-          <PantryItemForm onCancel={onCancel} onSave={onSave} />
+          <PantryItemForm
+            initialExpirationDate={initialExpirationDate}
+            initialName={initialName}
+            onCancel={onCancel}
+            onSave={onSave}
+          />
         </ScrollView>
       </View>
     </Modal>

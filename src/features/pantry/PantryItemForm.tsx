@@ -10,13 +10,15 @@ import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate
 import { ExpirationDatePicker } from './ExpirationDatePicker';
 
 type PantryItemFormProps = {
+  initialName?: string;
+  initialExpirationDate?: string;
   onCancel: () => void;
   onSave: (name: string, expirationDate: string) => void;
 };
 
-export function PantryItemForm({ onCancel, onSave }: PantryItemFormProps) {
-  const [nameDraft, setNameDraft] = useState('');
-  const [expirationDateDraft, setExpirationDateDraft] = useState('');
+export function PantryItemForm({ initialName = '', initialExpirationDate = '', onCancel, onSave }: PantryItemFormProps) {
+  const [nameDraft, setNameDraft] = useState(initialName);
+  const [expirationDateDraft, setExpirationDateDraft] = useState(initialExpirationDate);
   const [hasNameError, setHasNameError] = useState(false);
   const [expirationError, setExpirationError] = useState<'required' | 'invalid' | 'past' | null>(
     null,
