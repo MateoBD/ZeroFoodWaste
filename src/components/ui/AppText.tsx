@@ -5,6 +5,12 @@ import { useTheme } from '@/theme/useTheme';
 
 type Props = PropsWithChildren<TextProps & { variant?: 'body' | 'error' | 'title' | 'muted' }>;
 
+/**
+ * Renders text with semantic theme colors and an optional visual variant.
+ *
+ * @param props - Native text props, children, and the requested visual variant.
+ * @returns The themed text element.
+ */
 export function AppText({ children, style, variant = 'body', ...props }: Props) {
   const { colors } = useTheme();
   return (

@@ -1,3 +1,6 @@
+/**
+ * Defines the source English message catalogue and key set.
+ */
 export const en = {
   appTitle: 'ZeroFoodWaste',
   pantryTitle: 'Your pantry',
@@ -31,9 +34,19 @@ export const en = {
   expiresLabel: 'Expires',
 } as const;
 
+/**
+ * Represents the keys accepted by the typed translator.
+ */
 export type MessageKey = keyof typeof en;
+
+/**
+ * Represents a localized catalogue containing every English source key.
+ */
 export type Messages = Record<MessageKey, string>;
 
+/**
+ * Defines Spanish translations checked against every English message key.
+ */
 export const es: Messages = {
   appTitle: 'ZeroFoodWaste',
   pantryTitle: 'Tu despensa',
