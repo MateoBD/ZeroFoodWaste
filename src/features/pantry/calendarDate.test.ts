@@ -24,5 +24,13 @@ describe('calendar dates', () => {
     expect(isTodayOrFutureCalendarDate('2026-09-29', today)).toBe(true);
     expect(isTodayOrFutureCalendarDate('2026-09-30', today)).toBe(true);
     expect(isTodayOrFutureCalendarDate('2026-09-28', today)).toBe(false);
+    expect(isTodayOrFutureCalendarDate('not-a-date', today)).toBe(false);
+  });
+
+  it('compares dates correctly across a year boundary', () => {
+    const today = new Date(2026, 11, 31, 12);
+
+    expect(isTodayOrFutureCalendarDate('2027-01-01', today)).toBe(true);
+    expect(isTodayOrFutureCalendarDate('2026-12-30', today)).toBe(false);
   });
 });

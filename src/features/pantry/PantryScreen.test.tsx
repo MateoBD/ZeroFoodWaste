@@ -4,6 +4,7 @@ import { useLocales } from 'expo-localization';
 import { TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
+import { calendarDateToLocalDate, localDateToCalendarDate } from './calendarDate';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
@@ -60,6 +61,12 @@ describe('PantryScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Añadir alimento' }));
     expect(screen.getByLabelText('Nombre del alimento')).toBeTruthy();
     expect(screen.getByLabelText('Fecha de caducidad')).toBeTruthy();
+
+    await fireEvent.changeText(screen.getByLabelText('Nombre del alimento'), 'Pan');
+    await fireEvent.changeText(screen.getByLabelText('Fecha de caducidad'), '2000-01-01');
+    await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(screen.getByText('Elige la fecha de hoy o una fecha futura.')).toBeTruthy();
   });
 
   it('opens and cancels the form while discarding its draft', async () => {
@@ -143,6 +150,49 @@ describe('PantryScreen', () => {
     const error = screen.getByRole('alert');
     expect(error.props.accessibilityLiveRegion).toBe('assertive');
     expect(screen.getByText('Choose today or a future date.')).toBeTruthy();
+  });
+
+  it('accepts the current local calendar date', async () => {
+    const screen = await renderLoadedPantry();
+    const today = localDateToCalendarDate(new Date());
+
+    await addFood(screen, 'Bread', today);
+
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.getByText(`Expires: ${today}`)).toBeTruthy();
+  });
+
+  it('opens the picker at today and prevents earlier selections', async () => {
+    const screen = await renderLoadedPantry();
+    const today = localDateToCalendarDate(new Date());
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose expiration date' }));
+    const picker = screen.getByTestId('expiration-date-picker');
+
+    expect(localDateToCalendarDate(new Date(picker.props.minimumDate))).toBe(today);
+    expect(localDateToCalendarDate(new Date(picker.props.date))).toBe(today);
+    expect(picker.props.minimumDate).toBe(calendarDateToLocalDate(today)?.getTime());
+  });
+
+  it('keeps the typed expiration date when picker changes are cancelled', async () => {
+    const screen = await renderLoadedPantry();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    const dateInput = screen.getByLabelText('Expiration date');
+    await fireEvent.changeText(dateInput, '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose expiration date' }));
+    await fireEvent(
+      screen.getByTestId('expiration-date-picker'),
+      'valueChange',
+      { nativeEvent: { timestamp: 0, utcOffset: 0 } },
+      new Date(2999, 9, 20, 12),
+    );
+    const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' });
+    await fireEvent.press(cancelButtons[cancelButtons.length - 1]);
+
+    expect(screen.getByLabelText('Expiration date').props.value).toBe('2999-10-15');
+    expect(screen.queryByTestId('expiration-date-picker')).toBeNull();
   });
 
   it('fills the expiration field from the date picker', async () => {
