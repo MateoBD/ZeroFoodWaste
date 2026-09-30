@@ -33,7 +33,7 @@ function ItemSeparator() {
  * @returns The main pantry screen.
  */
 export function PantryScreen() {
-  const { items, status, hasSaveError, addItem, updateItem, retryLoad } = usePantryItems();
+  const { items, status, hasSaveError, addItem, updateItem, deleteItem, retryLoad } = usePantryItems();
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const t = useMessages();
@@ -53,11 +53,14 @@ export function PantryScreen() {
     setIsFormVisible(true);
   }, []);
 
+  const handleDelete = useCallback((id: string) => {
+    deleteItem(id);
+  }, [deleteItem]);
+
   function handleCloseForm() {
     setIsFormVisible(false);
     setEditingItemId(null);
   }
-
   /**
    * Opens recipes matching the ingredient linked to a pantry item.
    *
@@ -80,11 +83,12 @@ export function PantryScreen() {
       expirationDate={item.expirationDate}
       id={item.id}
       name={item.name}
+      onDelete={handleDelete}
       onEdit={handleEdit}
       onFindRecipes={handleFindRecipes}
       recipeIngredient={item.recipeIngredient}
     />
-  ), [handleEdit, handleFindRecipes]);
+  ), [handleDelete, handleEdit, handleFindRecipes]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
