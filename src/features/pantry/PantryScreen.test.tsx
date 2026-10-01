@@ -221,6 +221,18 @@ describe('PantryScreen', () => {
 
     expect(screen.getByText('Bread')).toBeTruthy();
     expect(screen.getByText(`Expires: ${today}`)).toBeTruthy();
+    expect(screen.getByTestId('expiration-badge-urgent')).toBeTruthy();
+    expect(screen.getByText('Use now')).toBeTruthy();
+  });
+
+  it('shows a fresh badge in the list for food with plenty of time left', async () => {
+    const screen = await renderLoadedPantry();
+
+    await addFood(screen, 'Rice', '2999-10-15');
+
+    expect(screen.getByTestId('expiration-badge-fresh')).toBeTruthy();
+    expect(screen.getByText('Fresh')).toBeTruthy();
+    expect(screen.getByLabelText('Rice, Expires: 2999-10-15, Fresh')).toBeTruthy();
   });
 
   it('suggests an English ingredient and persists its TheMealDB reference', async () => {

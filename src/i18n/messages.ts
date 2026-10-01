@@ -45,6 +45,10 @@ export const en = {
   expirationDateInvalid: 'Enter a valid date (YYYY-MM-DD).',
   expirationDatePast: 'Choose today or a future date.',
   expiresLabel: 'Expires',
+  urgencyExpired: 'Expired',
+  urgencyUrgent: 'Use now',
+  urgencySoon: 'Use soon',
+  urgencyFresh: 'Fresh',
 } as const;
 
 /**
@@ -104,4 +108,8 @@ export const es: Messages = {
   expirationDateInvalid: 'Introduce una fecha válida (AAAA-MM-DD).',
   expirationDatePast: 'Elige la fecha de hoy o una fecha futura.',
   expiresLabel: 'Caduca',
+  urgencyExpired: 'Caducado',
+  urgencyUrgent: 'Usar ya',
+  urgencySoon: 'Usar pronto',
+  urgencyFresh: 'Fresco',
 };
