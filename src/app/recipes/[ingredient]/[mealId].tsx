@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { RecipeDetailScreen } from '@/features/recipes/RecipeDetailScreen';
+import { ConnectedRecipeDetailScreen } from '@/features/recipes/RecipeDetailScreen';
 
 import { readRouteParam } from '../routeParam';
 
@@ -12,5 +12,5 @@ import { readRouteParam } from '../routeParam';
 export default function RecipeDetailRoute() {
   const { mealId } = useLocalSearchParams<{ mealId?: string | string[] }>();
 
-  return <RecipeDetailScreen mealId={readRouteParam(mealId)} />;
+  return <ConnectedRecipeDetailScreen mealId={readRouteParam(mealId)} />;
 }
