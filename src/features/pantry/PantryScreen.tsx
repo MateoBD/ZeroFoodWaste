@@ -1,6 +1,6 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,6 +20,7 @@ import { PantryItemRow } from './PantryItemRow';
 import { PantryLoadState } from './PantryLoadState';
 import type { PantryItem } from './pantryItem';
 import { usePantry, type PantryState } from './PantryContext';
+import { sortPantryItemsByExpiration } from './sortPantryItems';
 import { usePantryItems } from './usePantryItems';
 
 function keyExtractor(item: PantryItem) {
@@ -58,6 +59,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const sortedItems = useMemo(() => sortPantryItemsByExpiration(items), [items]);
   const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'add' || modalState?.mode === 'edit');
 
   const selectedItem = modalState && 'itemId' in modalState
@@ -125,7 +127,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
       <FlashList
         contentContainerStyle={[styles.listContent, currentFeedback ? styles.listContentWithFeedback : null]}
         contentInsetAdjustmentBehavior="automatic"
-        data={items}
+        data={sortedItems}
         ItemSeparatorComponent={ItemSeparator}
         keyExtractor={keyExtractor}
         ListEmptyComponent={

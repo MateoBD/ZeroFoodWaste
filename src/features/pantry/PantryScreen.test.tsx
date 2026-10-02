@@ -245,6 +245,17 @@ describe('PantryScreen', () => {
     expect(screen.getByRole('button', { name: 'Rice, Expires: 2999-10-15, Fresh' })).toBeTruthy();
   });
 
+  it('lists food with the closest expiration date first, including newly added food', async () => {
+    const screen = await renderLoadedPantry();
+
+    await addFood(screen, 'Rice', '2999-10-20');
+    await addFood(screen, 'Milk', '2999-10-10');
+    await addFood(screen, 'Bread', '2999-10-15');
+
+    const names = screen.getAllByText(/^(Rice|Milk|Bread)$/).map((node) => node.props.children);
+    expect(names).toEqual(['Milk', 'Bread', 'Rice']);
+  });
+
   it('opens all item actions from one row and closes the details modal', async () => {
     const screen = await renderLoadedPantry();
     await addFood(screen, 'Banana', '2999-10-15');
