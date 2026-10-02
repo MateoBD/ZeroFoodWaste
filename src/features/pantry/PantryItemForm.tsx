@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -44,6 +44,7 @@ type PantryItemFormProps = {
   initialRecipeIngredient?: IngredientReference | null;
   ingredientCatalog: readonly IngredientCatalogEntry[];
   ingredientCatalogStatus: IngredientCatalogStatus;
+  isEditing: boolean;
   onCancel: () => void;
   onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
@@ -52,7 +53,8 @@ type PantryItemFormProps = {
  * Collects a food name and package date with optional ingredient autocomplete.
  *
  * The form validates a non-empty name and a valid local YYYY-MM-DD date that
- * is today or later before calling the save callback.
+ * is today or later before calling the save callback. An unchanged expired
+ * date remains valid while editing an existing item.
  *
  * @param props - Initial values, catalogue state, and save or cancel callbacks.
  * @returns The add or edit form.
@@ -63,10 +65,12 @@ export function PantryItemForm({
   initialRecipeIngredient = null,
   ingredientCatalog,
   ingredientCatalogStatus,
+  isEditing,
   onCancel,
   onSave,
 }: PantryItemFormProps) {
   const [nameDraft, setNameDraft] = useState(initialName);
+  const [isNameActive, setIsNameActive] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientReference | null>(initialRecipeIngredient);
   const [expirationDateDraft, setExpirationDateDraft] = useState(initialExpirationDate);
   const [hasNameError, setHasNameError] = useState(false);
@@ -74,14 +78,28 @@ export function PantryItemForm({
     null,
   );
   const expirationInputRef = useRef<TextInput>(null);
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectingSuggestion = useRef(false);
   const t = useMessages();
   const { colors } = useTheme();
   const suggestions = useMemo(
-    () => selectedIngredient ? [] : matchIngredients(nameDraft, ingredientCatalog),
-    [ingredientCatalog, nameDraft, selectedIngredient],
+    () => isNameActive ? matchIngredients(nameDraft, ingredientCatalog) : [],
+    [ingredientCatalog, isNameActive, nameDraft],
   );
 
+  useEffect(() => () => {
+    if (blurTimer.current) clearTimeout(blurTimer.current);
+  }, []);
+
+  function handleNameBlur() {
+    if (blurTimer.current) clearTimeout(blurTimer.current);
+    blurTimer.current = setTimeout(() => {
+      if (!selectingSuggestion.current) setIsNameActive(false);
+    }, 120);
+  }
+
   function handleNameChange(value: string) {
+    setIsNameActive(true);
     setNameDraft(value);
     setSelectedIngredient(null);
     if (hasNameError) {
@@ -90,6 +108,9 @@ export function PantryItemForm({
   }
 
   function handleIngredientSelect(ingredient: IngredientReference) {
+    if (blurTimer.current) clearTimeout(blurTimer.current);
+    selectingSuggestion.current = false;
+    setIsNameActive(false);
     setNameDraft(ingredient.name);
     setSelectedIngredient(ingredient);
     setHasNameError(false);
@@ -118,7 +139,8 @@ export function PantryItemForm({
     } else if (!isValidCalendarDate(trimmedExpiration)) {
       setExpirationError('invalid');
       isFormValid = false;
-    } else if (!isTodayOrFutureCalendarDate(trimmedExpiration)) {
+    } else if (!isTodayOrFutureCalendarDate(trimmedExpiration) &&
+      !(isEditing && trimmedExpiration === initialExpirationDate)) {
       setExpirationError('past');
       isFormValid = false;
     }
@@ -128,6 +150,7 @@ export function PantryItemForm({
     }
 
     setNameDraft('');
+    setIsNameActive(false);
     setExpirationDateDraft('');
     setHasNameError(false);
     setExpirationError(null);
@@ -143,6 +166,8 @@ export function PantryItemForm({
         aria-invalid={hasNameError}
         autoCapitalize="sentences"
         onChangeText={handleNameChange}
+        onBlur={handleNameBlur}
+        onFocus={() => setIsNameActive(true)}
         onSubmitEditing={() => expirationInputRef.current?.focus()}
         placeholder={t('foodNamePlaceholder')}
         placeholderTextColor={colors.mutedText}
@@ -163,13 +188,13 @@ export function PantryItemForm({
           {t('foodNameRequired')}
         </AppText>
       ) : null}
-      {ingredientCatalogStatus === 'loading' && nameDraft.trim().length >= 2 && suggestions.length === 0 ? (
+      {isNameActive && ingredientCatalogStatus === 'loading' && nameDraft.trim().length >= 2 && suggestions.length === 0 ? (
         <AppText variant="muted">{t('ingredientSuggestionsLoading')}</AppText>
       ) : null}
-      {ingredientCatalogStatus === 'error' && nameDraft.trim().length >= 2 && suggestions.length === 0 ? (
+      {isNameActive && ingredientCatalogStatus === 'error' && nameDraft.trim().length >= 2 && suggestions.length === 0 ? (
         <AppText variant="muted">{t('ingredientSuggestionsUnavailable')}</AppText>
       ) : null}
-      {ingredientCatalogStatus === 'ready' && nameDraft.trim().length >= 2 && suggestions.length === 0 && !selectedIngredient ? (
+      {isNameActive && ingredientCatalogStatus === 'ready' && nameDraft.trim().length >= 2 && suggestions.length === 0 && !selectedIngredient ? (
         <AppText variant="muted">{t('ingredientSuggestionsEmpty')}</AppText>
       ) : null}
       {suggestions.length > 0 ? (
@@ -181,7 +206,9 @@ export function PantryItemForm({
                 accessibilityLabel={ingredient.name}
                 accessibilityRole="button"
                 key={`${ingredient.provider}-${ingredient.id}`}
+                onPressIn={() => { selectingSuggestion.current = true; }}
                 onPress={() => handleIngredientSelect(ingredient)}
+                onPressOut={() => { selectingSuggestion.current = false; }}
                 style={({ pressed }) => [
                   styles.suggestion,
                   { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.72 : 1 },
@@ -197,6 +224,8 @@ export function PantryItemForm({
       ) : null}
       {selectedIngredient ? (
         <AppText style={styles.helper} variant="muted">{`${t('ingredientLinkedLabel')}: ${selectedIngredient.name}`}</AppText>
+      ) : isEditing ? (
+        <AppText style={styles.helper} variant="muted">{t('ingredientUnlinkedEdit')}</AppText>
       ) : null}
 
       <AppText nativeID="expiration-date-label">{t('expirationDateLabel')}</AppText>
@@ -208,6 +237,7 @@ export function PantryItemForm({
           autoCapitalize="none"
           keyboardType="numbers-and-punctuation"
           onChangeText={handleExpirationChange}
+          onFocus={() => setIsNameActive(false)}
           onSubmitEditing={handleSubmit}
           placeholder={t('expirationDatePlaceholder')}
           placeholderTextColor={colors.mutedText}
