@@ -5,6 +5,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/AppText';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
+import type { MessageKey } from '@/i18n/messages';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -13,7 +15,7 @@ import { useIngredientCatalog } from '@/features/recipes/useIngredientCatalog';
 
 import { PantryEmptyState } from './PantryEmptyState';
 import { PantryHeader } from './PantryHeader';
-import { PantryItemFormModal } from './PantryItemFormModal';
+import { PantryItemModal, type PantryModalState } from './PantryItemModal';
 import { PantryItemRow } from './PantryItemRow';
 import { PantryLoadState } from './PantryLoadState';
 import type { PantryItem } from './pantryItem';
@@ -28,54 +30,71 @@ function ItemSeparator() {
 }
 
 /**
- * Coordinates the device-local pantry list and add or edit modal.
+ * Coordinates the pantry list, item modal, and queued Undo confirmations.
  *
  * @returns The main pantry screen.
  */
 export function PantryScreen() {
-  const { items, status, hasSaveError, addItem, updateItem, deleteItem, retryLoad } = usePantryItems();
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const {
+    items, status, hasSaveError, failedActionIds, addItem, updateItem,
+    consumeItem, undoAction, finalizeAction, retryLoad,
+  } = usePantryItems();
+  const [modalState, setModalState] = useState<PantryModalState>(null);
+  const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const ingredientCatalog = useIngredientCatalog(isFormVisible);
+  const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'add' || modalState?.mode === 'edit');
 
-  const editingItem = items.find((item) => item.id === editingItemId);
+  const selectedItem = modalState && 'itemId' in modalState
+    ? items.find((item) => item.id === modalState.itemId) : undefined;
+  const currentFeedback = feedbackQueue[0];
 
   function handleOpenForm() {
-    setEditingItemId(null);
-    setIsFormVisible(true);
+    setModalState({ mode: 'add' });
   }
 
-  const handleEdit = useCallback((id: string) => {
-    setEditingItemId(id);
-    setIsFormVisible(true);
+  const handleOpenDetails = useCallback((itemId: string) => {
+    setModalState({ mode: 'details', itemId });
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    deleteItem(id);
-  }, [deleteItem]);
-
-  function handleCloseForm() {
-    setIsFormVisible(false);
-    setEditingItemId(null);
+  function handleEdit() {
+    if (modalState && 'itemId' in modalState) setModalState({ mode: 'edit', itemId: modalState.itemId });
   }
+
+  function handleCloseModal() { setModalState(null); }
+
+  function handleConsume() {
+    if (!selectedItem) return;
+    const actionId = consumeItem(selectedItem.id);
+    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodConsumed' }]);
+    setModalState(null);
+  }
+
+  function handleFeedbackDismiss(reason: 'expired' | 'undo') {
+    if (!currentFeedback) return;
+    if (reason === 'undo') undoAction(currentFeedback.id);
+    else finalizeAction(currentFeedback.id);
+    setFeedbackQueue((queue) => queue.slice(1));
+  }
+
   /**
    * Opens recipes matching the ingredient linked to a pantry item.
    *
    * @param ingredient - The canonical TheMealDB ingredient stored with the pantry item.
    */
   const handleFindRecipes = useCallback((ingredient: IngredientReference) => {
+    setModalState(null);
     router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
   }, []);
 
   function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
     const draft = { name, expirationDate, recipeIngredient };
-    if (editingItemId) updateItem(editingItemId, draft);
-    else addItem(draft);
-    setIsFormVisible(false);
-    setEditingItemId(null);
+    if (modalState?.mode === 'edit') {
+      const actionId = updateItem(modalState.itemId, draft);
+      if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodUpdated' }]);
+    } else addItem(draft);
+    setModalState(null);
   }
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<PantryItem>) => (
@@ -83,17 +102,14 @@ export function PantryScreen() {
       expirationDate={item.expirationDate}
       id={item.id}
       name={item.name}
-      onDelete={handleDelete}
-      onEdit={handleEdit}
-      onFindRecipes={handleFindRecipes}
-      recipeIngredient={item.recipeIngredient}
+      onOpen={handleOpenDetails}
     />
-  ), [handleDelete, handleEdit, handleFindRecipes]);
+  ), [handleOpenDetails]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlashList
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, currentFeedback ? styles.listContentWithFeedback : null]}
         contentInsetAdjustmentBehavior="automatic"
         data={items}
         ItemSeparatorComponent={ItemSeparator}
@@ -115,7 +131,7 @@ export function PantryScreen() {
             styles.addButton,
             {
               backgroundColor: colors.accent,
-              bottom: insets.bottom + spacing.md,
+              bottom: insets.bottom + (currentFeedback ? 88 : spacing.md),
               right: insets.right + spacing.md,
             },
           ]}
@@ -125,15 +141,24 @@ export function PantryScreen() {
           </AppText>
         </Pressable>
       ) : null}
-      <PantryItemFormModal
-        initialExpirationDate={editingItem?.expirationDate}
-        initialName={editingItem?.name}
-        initialRecipeIngredient={editingItem?.recipeIngredient}
+      {currentFeedback ? (
+        <UndoSnackbar
+          key={currentFeedback.id}
+          bottom={insets.bottom + spacing.md}
+          isError={failedActionIds.includes(currentFeedback.id)}
+          message={t(failedActionIds.includes(currentFeedback.id) ? 'pantryChangeSaveError' : currentFeedback.messageKey)}
+          onDismiss={handleFeedbackDismiss}
+        />
+      ) : null}
+      <PantryItemModal
+        state={modalState}
+        item={selectedItem}
         ingredientCatalog={ingredientCatalog.items}
         ingredientCatalogStatus={ingredientCatalog.status}
-        isVisible={isFormVisible}
-        mode={editingItemId ? 'edit' : 'add'}
-        onCancel={handleCloseForm}
+        onClose={handleCloseModal}
+        onConsume={handleConsume}
+        onEdit={handleEdit}
+        onFindRecipes={handleFindRecipes}
         onSave={handleSave}
       />
     </View>
@@ -143,6 +168,7 @@ export function PantryScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   listContent: { paddingHorizontal: spacing.md, paddingBottom: 56 + spacing.xl },
+  listContentWithFeedback: { paddingBottom: 152 },
   separator: { height: spacing.sm },
   addButton: {
     position: 'absolute',
