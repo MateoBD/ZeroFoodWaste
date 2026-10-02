@@ -231,7 +231,7 @@ describe('PantryScreen', () => {
     expect(screen.getByText('Bread')).toBeTruthy();
     expect(screen.getByText(`Expires: ${today}`)).toBeTruthy();
     expect(screen.getByTestId('expiration-badge-urgent')).toBeTruthy();
-    expect(screen.getByText('Use now')).toBeTruthy();
+    expect(screen.getByText('Use today')).toBeTruthy();
   });
 
   it('shows a fresh badge in the list for food with plenty of time left', async () => {
@@ -240,7 +240,7 @@ describe('PantryScreen', () => {
     await addFood(screen, 'Rice', '2999-10-15');
 
     expect(screen.getByTestId('expiration-badge-fresh')).toBeTruthy();
-    expect(screen.getByText('Fresh')).toBeTruthy();
+    expect(screen.getByText(/days left$/)).toBeTruthy();
     expect(screen.getByLabelText('Rice, Expires: 2999-10-15, Fresh')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Rice, Expires: 2999-10-15, Fresh' })).toBeTruthy();
   });

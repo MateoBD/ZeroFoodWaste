@@ -17,15 +17,18 @@ type RecipeSearchState = {
  * @param ingredient - The canonical ingredient name used for the API search.
  * @returns The matching recipes and their loading status.
  */
-export function useRecipeSearch(ingredient: string) {
+export function useRecipeSearch(ingredient: string | null) {
   const [state, setState] = useState<RecipeSearchState>({
-    ingredient,
+    ingredient: ingredient ?? '',
     items: [],
-    status: 'loading',
+    status: ingredient === null ? 'ready' : 'loading',
   });
 
   useEffect(() => {
+    if (ingredient === null) return;
+
     let isActive = true;
+    const searchIngredient = ingredient;
 
     /**
      * Fetches recipes and applies the result while this hook remains mounted.
@@ -34,11 +37,11 @@ export function useRecipeSearch(ingredient: string) {
      */
     async function loadRecipes() {
       try {
-        const recipes = await theMealDbRecipeProvider.searchByIngredient(ingredient);
+        const recipes = await theMealDbRecipeProvider.searchByIngredient(searchIngredient);
         if (!isActive) return;
-        setState({ ingredient, items: recipes, status: 'ready' });
+        setState({ ingredient: searchIngredient, items: recipes, status: 'ready' });
       } catch {
-        if (isActive) setState({ ingredient, items: [], status: 'error' });
+        if (isActive) setState({ ingredient: searchIngredient, items: [], status: 'error' });
       }
     }
 
@@ -47,6 +50,8 @@ export function useRecipeSearch(ingredient: string) {
       isActive = false;
     };
   }, [ingredient]);
+
+  if (ingredient === null) return { items: [], status: 'ready' as const };
 
   return state.ingredient === ingredient
     ? { items: state.items, status: state.status }

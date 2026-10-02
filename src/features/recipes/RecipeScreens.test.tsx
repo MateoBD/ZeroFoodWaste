@@ -58,11 +58,23 @@ describe('recipe screens', () => {
       }),
     } as Response);
 
-    const screen = await render(<RecipeDetailScreen mealId="52772" />);
+    const screen = await render(
+      <RecipeDetailScreen
+        mealId="52772"
+        pantryItems={[{
+          id: 'item-1',
+          name: 'Chicken',
+          recipeIngredient: null,
+          expirationDate: '2999-10-15',
+          createdAt: '2026-09-01T10:00:00.000Z',
+        }]}
+      />,
+    );
 
     await waitFor(() => expect(screen.getByRole('header', { name: 'Teriyaki Chicken' })).toBeTruthy());
     expect(screen.getByText('Ingredients')).toBeTruthy();
     expect(screen.getByText('3 cups Chicken')).toBeTruthy();
+    expect(screen.getByTestId('expiration-badge-fresh')).toBeTruthy();
     expect(screen.getByText('Instructions')).toBeTruthy();
     expect(screen.getByText('Bake for 30 minutes.')).toBeTruthy();
   });

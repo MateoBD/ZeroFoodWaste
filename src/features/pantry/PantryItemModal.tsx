@@ -70,7 +70,7 @@ export function PantryItemModal({
                 </Pressable>
               </View>
               <AppText>{`${t('expiresLabel')}: ${item.expirationDate}`}</AppText>
-              {urgency ? <ExpirationBadge urgency={urgency} /> : null}
+              {urgency ? <ExpirationBadge expirationDate={item.expirationDate} /> : null}
               {item.recipeIngredient ? (
                 <View style={styles.recipeSection}>
                   <AppText variant="muted">{`${t('ingredientLinkedLabel')}: ${item.recipeIngredient.name}`}</AppText>

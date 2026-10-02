@@ -19,6 +19,7 @@ import { PantryItemModal, type PantryModalState } from './PantryItemModal';
 import { PantryItemRow } from './PantryItemRow';
 import { PantryLoadState } from './PantryLoadState';
 import type { PantryItem } from './pantryItem';
+import { usePantry, type PantryState } from './PantryContext';
 import { usePantryItems } from './usePantryItems';
 
 function keyExtractor(item: PantryItem) {
@@ -35,10 +36,23 @@ function ItemSeparator() {
  * @returns The main pantry screen.
  */
 export function PantryScreen() {
+  return <PantryScreenView pantry={usePantryItems()} />;
+}
+
+/**
+ * Connects the pantry screen to the shared application pantry state.
+ *
+ * @returns The pantry screen used by the tab route.
+ */
+export function ConnectedPantryScreen() {
+  return <PantryScreenView pantry={usePantry()} />;
+}
+
+function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const {
     items, status, hasSaveError, failedActionIds, addItem, updateItem,
     consumeItem, undoAction, finalizeAction, retryLoad,
-  } = usePantryItems();
+  } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
   const t = useMessages();

@@ -35,7 +35,7 @@ export const PantryItemRow = memo(function PantryItemRow({
       <Surface style={styles.row}>
         <View style={styles.titleLine}>
           <AppText style={styles.name}>{name}</AppText>
-          {urgency ? <ExpirationBadge urgency={urgency} /> : null}
+          {urgency ? <ExpirationBadge expirationDate={expirationDate} /> : null}
         </View>
         <AppText variant="muted">{`${t('expiresLabel')}: ${expirationDate}`}</AppText>
       </Surface>
