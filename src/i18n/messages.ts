@@ -49,6 +49,7 @@ export const en = {
   urgencyUrgent: 'Use now',
   urgencySoon: 'Use soon',
   urgencyFresh: 'Fresh',
+  consumed: 'Consumed',
 } as const;
 
 /**
@@ -112,4 +113,5 @@ export const es: Messages = {
   urgencyUrgent: 'Usar ya',
   urgencySoon: 'Usar pronto',
   urgencyFresh: 'Fresco',
+  consumed: 'Consumido',
 };

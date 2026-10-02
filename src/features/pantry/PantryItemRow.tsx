@@ -19,6 +19,7 @@ type PantryItemRowProps = {
   onFindRecipes: (ingredient: IngredientReference) => void;
   recipeIngredient: IngredientReference | null;
   id: string;
+  onDelete: (id: string) => void;
 };
 
 /**
@@ -34,6 +35,7 @@ export const PantryItemRow = memo(function PantryItemRow({
   onEdit,
   onFindRecipes,
   recipeIngredient,
+  onDelete,
 }: PantryItemRowProps) {
   const t = useMessages();
   const { colors } = useTheme();
@@ -72,6 +74,16 @@ export const PantryItemRow = memo(function PantryItemRow({
           tintColor={colors.mutedText}
         />
       </Pressable>
+      <Pressable
+        style={[styles.consumedButton, { backgroundColor: colors.accent }]}
+        onPress={() => onDelete(id)}
+        accessibilityRole="button"
+        accessibilityLabel={`${t('consumed')} ${name}`}
+      >
+        <AppText style={[styles.consumedButtonText, { color: colors.accentText }]}>
+          {t('consumed')}
+        </AppText>
+      </Pressable>
     </Surface>
   );
 });
@@ -98,4 +110,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recipeButtonText: { fontWeight: '700' },
+  consumedButton: {
+    minWidth: 72,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+  },
+  consumedButtonText: {
+    fontWeight: '600',
+  },
 });

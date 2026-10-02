@@ -19,7 +19,7 @@ export type PantryItemDraft = Readonly<{
 }>;
 
 /**
- * Loads pantry items and queues writes in order after local add or edit actions.
+ * Loads pantry items and queues writes in order after local add, edit, or delete actions.
  *
  * A load failure blocks edits; a failed save leaves the local item visible and sets hasSaveError.
  *
@@ -103,5 +103,20 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
       );
   }
 
-  return { items, status, hasSaveError, addItem, updateItem, retryLoad };
+  function deleteItem(id: string) {
+    if (statusRef.current !== 'ready') return;
+
+    const nextItems = itemsRef.current.filter((item) => item.id !== id);
+    itemsRef.current = nextItems;
+    setItems(nextItems);
+
+    writeQueue.current = writeQueue.current
+      .then(() => repository.saveItems(nextItems))
+      .then(
+        () => setHasSaveError(false),
+        () => setHasSaveError(true),
+      );
+  }
+
+  return { items, status, hasSaveError, addItem, updateItem, deleteItem, retryLoad };
 }
