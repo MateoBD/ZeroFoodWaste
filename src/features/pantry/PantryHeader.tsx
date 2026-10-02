@@ -1,29 +1,21 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
-import { Button, ButtonText } from '@/components/ui/Button';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 
-import { PantryItemForm } from './PantryItemForm';
-
 type PantryHeaderProps = {
-  canAddItems: boolean;
   hasSaveError: boolean;
-  isFormVisible: boolean;
-  onSave: (name: string, expirationDate: string) => void;
-  onToggleForm: () => void;
 };
 
-export function PantryHeader({
-  canAddItems,
-  hasSaveError,
-  isFormVisible,
-  onSave,
-  onToggleForm,
-}: PantryHeaderProps) {
+/**
+ * Displays the pantry heading and any device-storage save warning.
+ *
+ * @param props - Whether the latest device-local save failed.
+ * @returns The localized pantry header.
+ */
+export function PantryHeader({ hasSaveError }: PantryHeaderProps) {
   const t = useMessages();
-  const toggleLabel = isFormVisible ? t('cancel') : t('addFood');
 
   return (
     <View style={styles.header}>
@@ -38,16 +30,6 @@ export function PantryHeader({
           {t('pantrySaveError')}
         </AppText>
       ) : null}
-      {canAddItems ? (
-        <Button
-          accessibilityLabel={toggleLabel}
-          accessibilityState={{ expanded: isFormVisible }}
-          onPress={onToggleForm}
-        >
-          <ButtonText>{toggleLabel}</ButtonText>
-        </Button>
-      ) : null}
-      {canAddItems && isFormVisible ? <PantryItemForm onSave={onSave} /> : null}
     </View>
   );
 }

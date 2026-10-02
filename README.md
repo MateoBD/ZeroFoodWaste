@@ -1,6 +1,6 @@
 # ZeroFoodWaste
 
-ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its planned purpose is to help households use food before it expires and reduce domestic food waste. The current screen is an early pantry: users can add food names, which are saved on the device and kept when the app restarts. There is no quantity, expiration logic, sorting, editing, deletion, or cloud sync yet.
+ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its purpose is to help households use food before it expires and reduce domestic food waste. The pantry lets users add and edit food names and expiration dates, keeps them on the device, and offers English TheMealDB ingredient suggestions while the food-name field is active. A Recipes tab automatically suggests meals for linked foods that expired within the last seven days or expire within five days.
 
 ## Get started
 
@@ -18,15 +18,30 @@ Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pn
 | Path | Purpose |
 | --- | --- |
 | `src/app/` | Expo Router routes and native stack layout. Route files compose screens. |
-| `src/features/pantry/` | Pantry screen, form, loading/empty/error states, item rows, the `PantryItem` model, and the device-local pantry repository. Future inventory domain rules and flows belong here. |
-| `src/components/ui/` | Reusable button, text, and surface primitives. |
+| `src/features/pantry/` | Pantry screen, item details and form modal, loading/empty/error states, action journal, item rows, model, and device-local repository. Future inventory domain rules and flows belong here. |
+| `src/features/recipes/` | Recipe types and provider boundaries, TheMealDB recipe access, screens, English ingredient catalogue, matching, and its device-local cache. |
+| `src/components/ui/` | Reusable button, text, surface, and timed Undo feedback primitives. |
 | `src/theme/` | Light and dark semantic color and spacing tokens. |
 | `src/i18n/` | Typed English and Spanish messages and device-locale selection. |
 | `assets/images/` | iOS and Android launcher images. |
 | `.github/workflows/pr-checks.yml` | Pull request and post-merge CI for types, lint, tests, and both production bundles. |
 | `eas.json` | EAS Build profiles for installable Android previews and production builds. |
 
-Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; recipes and statistics get their own feature folders when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
+Pantry data is **device-local**: `pantryRepository.ts` stores items as versioned JSON in `@react-native-async-storage/async-storage`, which works on iOS, Android, web, and Expo Go. Nothing is synced between devices, and uninstalling the app (or clearing browser site data) removes the pantry. Screens use the typed `PantryRepository` boundary, so a later move to SQLite or an account-synced backend does not require UI rewrites. Keep external product lookup and recipe providers in typed adapters beside their feature modules; statistics can get its own feature folder when implemented. Do not infer an expiration date from a barcode. The planned roadmap and open domain decisions are in the local project guide.
+
+The recipe feature fetches TheMealDB's English ingredient catalogue from `list.php?i=list`, caches it locally for autocomplete, and stores a selected ingredient's provider, TheMealDB ID, and canonical English name with the pantry item. Automatic recipe searches use that canonical name with `filter.php?i=`; the ID remains the stable provider reference. Recently expired linked foods are searched before linked foods expiring within five days, duplicate meals are combined, and the ingredient filter is limited to the eligible pantry foods. The add and edit forms use the same suggestions. A user can still save an unmatched food or continue offline, in which case its recipe reference is `null` and it does not initiate an automatic search. Recipe details use `lookup.php?i=` and highlight exact pantry matches, including exact normalized manual names. Service loading, empty, partial, and failure states stay within the recipe feature so pantry management remains available if TheMealDB is unavailable. The development key is suitable for educational work; production access must be settled before shipping the integration.
+
+## Pantry actions and feedback
+
+The native bottom bar switches between Pantry and Recipes. Each pantry row is one button. It opens a details modal showing the food name, package expiration date, urgency, and recipe ingredient link status. Find recipes opens matching results for that linked ingredient, including foods outside the automatic suggestion window. Edit food opens the form in the same modal; saving returns to the pantry. Mark consumed removes the item from the active pantry and from shared recipe suggestions. There is no consumption history yet.
+
+Ingredient suggestions, loading, and no-match feedback appear only while the food-name field is active. A saved manual food without a recipe ingredient shows a small hint in details and edit; it remains valid, and focusing the name field offers matches when the catalogue is available. An unchanged expired package date can be kept during an edit.
+
+Edits and consumption show a bottom confirmation with Undo for four seconds. A thin bar beneath the message empties from right to left into the rounded edge to show the time remaining; then the message slides down. Rapid actions queue so each has its own Undo window and a fresh timer bar. Undo restores the prior fields, identity, and list position while retaining later changes. Additions do not currently offer Undo. Use this reusable bottom confirmation pattern for future update and delete actions. If a device write fails, the confirmation changes to a short failure message and the persistent storage warning remains visible.
+
+## Code documentation
+
+Use review-focused JSDoc (`/** ... */`) on production exports, including functions, components, hooks, types, interfaces, and provider objects. Start with a plain-language summary, use a separate paragraph for behavior or edge cases, then document every parameter and return value with `@param` and `@returns`. Add `@throws` only when the declaration can throw or reject, and name the relevant error cases. Document private helpers when their behavior or edge cases need explanation. Describe current behavior; keep planned APIs clearly identified as future work. Avoid repetitive comments on test helpers, inline callbacks, and trivial handlers.
 
 Device-local storage is the agreed choice for this early pantry. A missing storage key starts with an empty pantry. If the saved JSON, format version, or an item is invalid, the app shows a load error and offers retry. It keeps the original stored value and blocks additions until loading succeeds, so damaged data is not silently replaced. A failed save leaves a visible warning; a later successful save clears it.
 
