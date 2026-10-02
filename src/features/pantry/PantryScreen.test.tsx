@@ -634,4 +634,26 @@ describe('PantryScreen', () => {
     const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
     expect(JSON.parse(raw!).items).toHaveLength(2);
   });
+  it('removes an item and remembers the removal after reopening', async () => {
+  const screen = await renderLoadedPantry();
+
+  await addFood(screen, 'Bread', '2026-10-10');
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Consumed Bread' }));
+
+  expect(screen.queryByText('Bread')).toBeNull();
+  expect(screen.getByText('Your pantry is empty. Add a food to get started.')).toBeTruthy();
+
+  await waitFor(async () => {
+    const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+    expect(JSON.parse(raw!).items).toHaveLength(0);
+  });
+
+  await screen.unmount();
+
+  const reopenedScreen = await renderLoadedPantry();
+
+  expect(reopenedScreen.getByText('Your pantry is empty. Add a food to get started.')).toBeTruthy();
+  expect(reopenedScreen.queryByText('Bread')).toBeNull();
+});
 });
