@@ -9,6 +9,9 @@ import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import type { IngredientReference } from '@/features/recipes/ingredient';
 
+import { ExpirationBadge, urgencyMessageKeys } from './ExpirationBadge';
+import { getExpirationUrgency } from './expirationUrgency';
+
 type PantryItemRowProps = {
   expirationDate: string;
   name: string;
@@ -36,12 +39,17 @@ export const PantryItemRow = memo(function PantryItemRow({
 }: PantryItemRowProps) {
   const t = useMessages();
   const { colors } = useTheme();
-  const label = `${name}, ${t('expiresLabel')}: ${expirationDate}`;
+  const urgency = getExpirationUrgency(expirationDate);
+  const urgencyLabel = urgency ? `, ${t(urgencyMessageKeys[urgency])}` : '';
+  const label = `${name}, ${t('expiresLabel')}: ${expirationDate}${urgencyLabel}`;
 
   return (
     <Surface style={styles.row} accessible accessibilityLabel={label}>
       <View style={styles.content}>
-        <AppText style={styles.name}>{name}</AppText>
+        <View style={styles.titleLine}>
+          <AppText style={styles.name}>{name}</AppText>
+          {urgency ? <ExpirationBadge urgency={urgency} /> : null}
+        </View>
         <AppText variant="muted">{`${t('expiresLabel')}: ${expirationDate}`}</AppText>
         {recipeIngredient ? (
           <Pressable
@@ -91,6 +99,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: { flex: 1, gap: spacing.xs },
+  titleLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   name: { fontWeight: '600' },
   recipeButton: {
     alignSelf: 'flex-start',
