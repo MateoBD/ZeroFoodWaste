@@ -68,12 +68,8 @@ describe('useUrgentRecipeSuggestions', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('searches the most urgent item by name when it has no linked ingredient', async () => {
-    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ meals: [] }),
-    } as Response);
+  it('does not search when the most urgent item has no linked ingredient', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
     const screen = await render(<SuggestionsProbe items={[
       pantryItem('Zucchini', '2026-10-03', null),
       pantryItem('Chicken', '2026-10-20', 'Chicken'),
@@ -82,9 +78,6 @@ describe('useUrgentRecipeSuggestions', () => {
     expect(screen.getByTestId('urgent-item').props.children).toBe('Zucchini');
     expect(screen.getByTestId('ingredient').props.children).toBe('none');
     await waitFor(() => expect(screen.getByTestId('status').props.children).toBe('ready'));
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'https://www.themealdb.com/api/json/v1/1/filter.php?i=Zucchini',
-    );
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
