@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMessages } from '@/i18n/useMessages';
 import { useTheme } from '@/theme/useTheme';
 import { PantryProvider } from '@/features/pantry/PantryContext';
+import { RecommendationProvider } from '@/features/recipes/recommendations/RecommendationContext';
 
 /**
  * Configures the theme-aware native stack and status bar.
@@ -16,8 +17,9 @@ export default function RootLayout() {
 
   return (
     <PantryProvider>
-      <StatusBar style="auto" />
-      <Stack
+      <RecommendationProvider>
+        <StatusBar style="auto" />
+        <Stack
         screenOptions={{
           contentStyle: { backgroundColor: colors.background },
           headerStyle: { backgroundColor: colors.background },
@@ -33,7 +35,8 @@ export default function RootLayout() {
           name="recipes/[ingredient]/[mealId]"
           options={{ headerBackTitle: t('recipesTab'), title: t('recipeDetailTitle') }}
         />
-      </Stack>
+        </Stack>
+      </RecommendationProvider>
     </PantryProvider>
   );
 }
