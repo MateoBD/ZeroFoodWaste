@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
 import { Surface } from '@/components/ui/Surface';
-import { TimedNotice } from '@/components/ui/TimedNotice';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { ExpirationBadge } from '@/features/pantry/ExpirationBadge';
 import { usePantry } from '@/features/pantry/PantryContext';
 import { useMessages } from '@/i18n/useMessages';
@@ -163,13 +163,15 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
         renderItem={renderRecipe}
       />
       {failureNoticeId !== null ? (
-        <TimedNotice
+        <UndoSnackbar
           key={failureNoticeId}
           actionLabel={t('retry')}
-          bottom={insets.bottom + 72}
+          bottom={insets.bottom + spacing.md}
           message={t('recipesPartialError')}
-          onAction={refresh}
-          onDismiss={dismissFailureNotice}
+          onDismiss={(reason) => {
+            if (reason === 'action') refresh();
+            dismissFailureNotice();
+          }}
         />
       ) : null}
     </View>

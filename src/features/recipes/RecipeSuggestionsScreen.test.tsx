@@ -144,8 +144,9 @@ describe('RecipeSuggestionsScreen', () => {
     );
 
     expect(await screen.findByRole('button', { name: 'Chicken soup' })).toBeTruthy();
-    expect(await screen.findByTestId('recipe-update-notice')).toBeTruthy();
+    expect(await screen.findByTestId('undo-snackbar')).toBeTruthy();
     expect(screen.getByText("Some recipes couldn't refresh.")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
   it('shows a clear message when an eligible ingredient has no recipes', async () => {
