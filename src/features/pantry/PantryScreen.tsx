@@ -157,6 +157,26 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
           </AppText>
         </Pressable>
       ) : null}
+      {status === 'ready' ? (
+        <Pressable
+          accessibilityLabel={t('scanBarcode')}
+          accessibilityRole="button"
+          onPress={() => router.push('/scan-barcode')}
+          style={[
+            styles.addButton,
+            styles.scanButton,
+            {
+              backgroundColor: colors.accent,
+              bottom: insets.bottom + (currentFeedback ? 152 : 76) + spacing.md,
+              right: insets.right + spacing.md,
+            },
+          ]}
+        >
+          <AppText accessible={false} style={[styles.addButtonText, { color: colors.accentText }]}>
+            📷
+          </AppText>
+        </Pressable>
+      ) : null}
       {currentFeedback ? (
         <UndoSnackbar
           key={currentFeedback.id}
@@ -196,5 +216,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.24)',
   },
+  scanButton: {},
   addButtonText: { fontSize: 32, lineHeight: 36, fontWeight: '400' },
 });
