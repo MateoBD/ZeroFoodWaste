@@ -60,11 +60,18 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     scannedName?: string;
     manualEntry?: string;
   }>();
+  const scanRequest = scannedName ?? (manualEntry ? 'manual-entry' : undefined);
+  const [handledScanRequest, setHandledScanRequest] = useState<string | undefined>(undefined);
+  
+  if (scanRequest !== handledScanRequest) {
+    setHandledScanRequest(scanRequest);
+    if (scanRequest) setModalState({ mode: 'add', initialName: scannedName });
+  }
   
   useEffect(() => {
-    if (!scannedName && !manualEntry) return;
-    setModalState({ mode: 'add', initialName: scannedName });
-    router.setParams({ scannedName: undefined, manualEntry: undefined });
+    if (scannedName || manualEntry) {
+      router.setParams({ scannedName: undefined, manualEntry: undefined });
+    }
   }, [scannedName, manualEntry]);
   const t = useMessages();
   const { colors } = useTheme();
