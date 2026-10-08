@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 
 import { createPantryItem, type PantryItem } from './pantryItem';
 import { asyncStoragePantryRepository, type PantryRepository } from './pantryRepository';
+import {
+  asyncStoragePantryEventRepository,
+  type PantryEventRepository,
+} from './pantryEventRepository';
+import type { PantryEvent, PantryEventOutcome } from './pantryEvent';
 import type { IngredientReference } from '@/features/recipes/ingredient';
 import { compactPantryActions, replayPantryActions, type PantryAction } from './pantryActionJournal';
 
@@ -26,10 +31,15 @@ export type PantryItemDraft = Readonly<{
  * A load failure blocks edits; a failed save leaves the local item visible and sets hasSaveError.
  *
  * @param repository - The pantry storage implementation. Defaults to AsyncStorage.
+ * @param eventRepository - The outcome-history storage implementation. Defaults to AsyncStorage.
  * @returns Pantry data, state flags, and actions for loading, changing, and undoing items.
  */
-export function usePantryItems(repository: PantryRepository = asyncStoragePantryRepository) {
+export function usePantryItems(
+  repository: PantryRepository = asyncStoragePantryRepository,
+  eventRepository: PantryEventRepository = asyncStoragePantryEventRepository,
+) {
   const [items, setItems] = useState<PantryItem[]>([]);
+  const [events, setEvents] = useState<PantryEvent[]>([]);
   const [status, setStatus] = useState<PantryLoadStatus>('loading');
   const [hasSaveError, setHasSaveError] = useState(false);
   const [failedActionIds, setFailedActionIds] = useState<string[]>([]);
@@ -39,13 +49,24 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
   const baseRef = useRef<PantryItem[]>([]);
   const actionsRef = useRef<PantryAction[]>([]);
+  const eventsRef = useRef<PantryEvent[]>([]);
   const actionSequence = useRef(0);
 
-  function saveItems(nextItems: PantryItem[], actionId: string) {
+  function saveState(
+    nextItems: PantryItem[],
+    nextEvents: PantryEvent[],
+    actionId: string,
+    shouldSaveEvents = false,
+  ) {
     itemsRef.current = nextItems;
+    eventsRef.current = nextEvents;
     setItems(nextItems);
+    setEvents(nextEvents);
     writeQueue.current = writeQueue.current
-      .then(() => repository.saveItems(nextItems))
+      .then(async () => {
+        await repository.saveItems(nextItems);
+        if (shouldSaveEvents) await eventRepository.saveEvents(nextEvents);
+      })
       .then(
         () => {
           setHasSaveError(false);
@@ -72,13 +93,15 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
   useEffect(() => {
     let isActive = true;
 
-    repository.loadItems().then(
-      (loadedItems) => {
+    Promise.all([repository.loadItems(), eventRepository.loadEvents()]).then(
+      ([loadedItems, loadedEvents]) => {
         if (isActive) {
           itemsRef.current = loadedItems;
+          eventsRef.current = loadedEvents;
           baseRef.current = loadedItems;
           actionsRef.current = [];
           setItems(loadedItems);
+          setEvents(loadedEvents);
           statusRef.current = 'ready';
           setStatus('ready');
         }
@@ -94,7 +117,7 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
     return () => {
       isActive = false;
     };
-  }, [repository, loadAttempt]);
+  }, [eventRepository, repository, loadAttempt]);
 
   function retryLoad() {
     statusRef.current = 'loading';
@@ -112,7 +135,7 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
       undoable: false,
     };
     actionsRef.current = [...actionsRef.current, action];
-    saveItems(replayPantryActions(baseRef.current, actionsRef.current), action.id);
+    saveState(replayPantryActions(baseRef.current, actionsRef.current), eventsRef.current, action.id);
     compactActions();
   }
 
@@ -137,22 +160,56 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
       undoable: true,
     };
     actionsRef.current = [...actionsRef.current, action];
-    saveItems(replayPantryActions(baseRef.current, actionsRef.current), action.id);
+    saveState(replayPantryActions(baseRef.current, actionsRef.current), eventsRef.current, action.id);
+    return action.id;
+  }
+
+  function removeItemWithOutcome(id: string, outcome: PantryEventOutcome) {
+    if (statusRef.current !== 'ready' || !itemsRef.current.some((item) => item.id === id)) return null;
+    const actionId = nextActionId();
+    const action: PantryAction = {
+      id: actionId,
+      kind: outcome === 'consumed' ? 'consume' : 'waste',
+      itemId: id,
+      undoable: true,
+    };
+    const item = itemsRef.current.find((candidate) => candidate.id === id)!;
+    const event: PantryEvent = {
+      id: actionId,
+      pantryItemId: item.id,
+      itemName: item.name,
+      outcome,
+      occurredAt: new Date().toISOString(),
+    };
+    actionsRef.current = [...actionsRef.current, action];
+    saveState(
+      replayPantryActions(baseRef.current, actionsRef.current),
+      [...eventsRef.current, event],
+      action.id,
+      true,
+    );
     return action.id;
   }
 
   function consumeItem(id: string) {
-    if (statusRef.current !== 'ready' || !itemsRef.current.some((item) => item.id === id)) return null;
-    const action: PantryAction = { id: nextActionId(), kind: 'consume', itemId: id, undoable: true };
-    actionsRef.current = [...actionsRef.current, action];
-    saveItems(replayPantryActions(baseRef.current, actionsRef.current), action.id);
-    return action.id;
+    return removeItemWithOutcome(id, 'consumed');
+  }
+
+  function wasteItem(id: string) {
+    return removeItemWithOutcome(id, 'wasted');
   }
 
   function undoAction(id: string) {
-    if (!actionsRef.current.some((action) => action.id === id && action.undoable)) return false;
+    const action = actionsRef.current.find((candidate) => candidate.id === id && candidate.undoable);
+    if (!action) return false;
     actionsRef.current = actionsRef.current.filter((action) => action.id !== id);
-    saveItems(replayPantryActions(baseRef.current, actionsRef.current), nextActionId());
+    const shouldSaveEvents = action.kind === 'consume' || action.kind === 'waste';
+    saveState(
+      replayPantryActions(baseRef.current, actionsRef.current),
+      shouldSaveEvents ? eventsRef.current.filter((event) => event.id !== id) : eventsRef.current,
+      nextActionId(),
+      shouldSaveEvents,
+    );
     compactActions();
     return true;
   }
@@ -165,7 +222,7 @@ export function usePantryItems(repository: PantryRepository = asyncStoragePantry
   }
 
   return {
-    items, status, hasSaveError, failedActionIds, addItem, updateItem,
-    consumeItem, undoAction, finalizeAction, retryLoad,
+    items, events, status, hasSaveError, failedActionIds, addItem, updateItem,
+    consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
   };
 }

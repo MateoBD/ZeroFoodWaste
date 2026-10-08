@@ -52,7 +52,7 @@ export function ConnectedPantryScreen() {
 function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const {
     items, status, hasSaveError, failedActionIds, addItem, updateItem,
-    consumeItem, undoAction, finalizeAction, retryLoad,
+    consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
@@ -84,6 +84,13 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     if (!selectedItem) return;
     const actionId = consumeItem(selectedItem.id);
     if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodConsumed' }]);
+    setModalState(null);
+  }
+
+  function handleWaste() {
+    if (!selectedItem) return;
+    const actionId = wasteItem(selectedItem.id);
+    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodWasted' }]);
     setModalState(null);
   }
 
@@ -176,6 +183,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         onEdit={handleEdit}
         onFindRecipes={handleFindRecipes}
         onSave={handleSave}
+        onWaste={handleWaste}
       />
     </View>
   );

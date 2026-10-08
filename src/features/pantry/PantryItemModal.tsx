@@ -24,6 +24,7 @@ type PantryItemModalProps = {
   onClose: () => void;
   onEdit: () => void;
   onConsume: () => void;
+  onWaste: () => void;
   onFindRecipes: (ingredient: IngredientReference) => void;
   onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
@@ -36,7 +37,7 @@ type PantryItemModalProps = {
  */
 export function PantryItemModal({
   state, item, ingredientCatalog, ingredientCatalogStatus,
-  onClose, onEdit, onConsume, onFindRecipes, onSave,
+  onClose, onEdit, onConsume, onWaste, onFindRecipes, onSave,
 }: PantryItemModalProps) {
   const t = useMessages();
   const { colors } = useTheme();
@@ -96,6 +97,13 @@ export function PantryItemModal({
                   style={[styles.secondaryButton, styles.action, { borderColor: colors.border }]}
                 >
                   <AppText style={{ color: colors.text }}>{t('markConsumed')}</AppText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onWaste}
+                  style={[styles.secondaryButton, styles.action, { borderColor: colors.border }]}
+                >
+                  <AppText style={{ color: colors.errorText }}>{t('markWasted')}</AppText>
                 </Pressable>
               </View>
             </View>
