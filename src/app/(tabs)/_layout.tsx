@@ -4,7 +4,7 @@ import { useMessages } from '@/i18n/useMessages';
 import { useTheme } from '@/theme/useTheme';
 
 /**
- * Configures the native bottom navigation for pantry and recipe suggestions.
+ * Configures the native bottom navigation for pantry, recipe suggestions, and favorite recipes.
  *
  * @returns The platform-native tab layout.
  */
@@ -25,6 +25,10 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="recipes">
         <NativeTabs.Trigger.Icon md="restaurant" sf={{ default: 'fork.knife', selected: 'fork.knife.circle.fill' }} />
         <NativeTabs.Trigger.Label>{t('recipesTab')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="favorites">
+        <NativeTabs.Trigger.Icon md="favorite" sf={{ default: 'heart', selected: 'heart.fill' }} />
+        <NativeTabs.Trigger.Label>{t('favoritesTab')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMessages } from '@/i18n/useMessages';
 import { useTheme } from '@/theme/useTheme';
 import { PantryProvider } from '@/features/pantry/PantryContext';
+import { FavoriteRecipesProvider } from '@/features/recipes/favorites/FavoriteRecipesContext';
 import { RecommendationProvider } from '@/features/recipes/recommendations/RecommendationContext';
 
 /**
@@ -18,6 +19,7 @@ export default function RootLayout() {
   return (
     <PantryProvider>
       <RecommendationProvider>
+        <FavoriteRecipesProvider>
         <StatusBar style="auto" />
         <Stack
         screenOptions={{
@@ -36,6 +38,7 @@ export default function RootLayout() {
           options={{ headerBackTitle: t('recipesTab'), title: t('recipeDetailTitle') }}
         />
         </Stack>
+        </FavoriteRecipesProvider>
       </RecommendationProvider>
     </PantryProvider>
   );

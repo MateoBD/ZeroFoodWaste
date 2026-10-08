@@ -15,6 +15,7 @@ import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
+import { FavoriteButton } from './favorites/FavoriteButton';
 import { normalizeIngredientQuery } from './ingredientMatcher';
 import type { Recommendation, SearchIngredient } from './recommendations/types';
 import { useRecommendations } from './recommendations/RecommendationContext';
@@ -216,6 +217,7 @@ type RecipeSuggestionCardProps = Readonly<{
 const RecipeSuggestionCard = memo(function RecipeSuggestionCard({ item, onPress }: RecipeSuggestionCardProps) {
   const t = useMessages();
   return (
+    <View>
     <Pressable
       accessibilityLabel={item.recipe.name}
       accessibilityRole="button"
@@ -234,7 +236,7 @@ const RecipeSuggestionCard = memo(function RecipeSuggestionCard({ item, onPress 
             transition={150}
           />
         ) : null}
-        <AppText style={styles.recipeName}>{item.recipe.name}</AppText>
+        <AppText style={[styles.recipeName, !item.recipe.imageUrl && styles.nameBesideFavorite]}>{item.recipe.name}</AppText>
         <AppText variant="muted">{`${item.score.totalMatchCount}/${item.score.totalMatchCount + item.missing.length} ${t('ingredientsMatched')}`}</AppText>
         <AppText variant="muted">{`${item.score.priorityMatchCount} ${t('priorityMatches')}`}</AppText>
         <AppText variant="muted">{t('ingredientPresenceNotice')}</AppText>
@@ -251,6 +253,8 @@ const RecipeSuggestionCard = memo(function RecipeSuggestionCard({ item, onPress 
         <AppText variant="muted">{t('viewRecipe')}</AppText>
       </Surface>
     </Pressable>
+    <FavoriteButton overlay recipe={item.recipe} />
+    </View>
   );
 });
 
@@ -275,6 +279,7 @@ const styles = StyleSheet.create({
   card: { gap: spacing.sm },
   image: { width: '100%', height: 180, borderRadius: 12, borderCurve: 'continuous' },
   recipeName: { fontSize: 18, fontWeight: '700' },
+  nameBesideFavorite: { marginRight: 48 + spacing.sm },
   matches: { gap: spacing.sm },
   match: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
 });
