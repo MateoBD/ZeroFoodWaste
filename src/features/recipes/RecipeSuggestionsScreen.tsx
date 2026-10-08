@@ -3,10 +3,12 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
 import { Surface } from '@/components/ui/Surface';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { ExpirationBadge } from '@/features/pantry/ExpirationBadge';
 import { usePantry } from '@/features/pantry/PantryContext';
 import { useMessages } from '@/i18n/useMessages';
@@ -14,17 +16,17 @@ import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 import { normalizeIngredientQuery } from './ingredientMatcher';
-import type { EligiblePantryItem, RecipeSuggestion } from './recipeSuggestions';
-import { useRecipeSuggestions } from './useRecipeSuggestions';
+import type { Recommendation, SearchIngredient } from './recommendations/types';
+import { useRecommendations } from './recommendations/RecommendationContext';
 
 type RecipeSuggestionsScreenProps = Readonly<{ initialIngredient?: string }>;
 
-function recipeKey(item: RecipeSuggestion) {
-  return item.recipe.id;
+function recipeKey(item: Recommendation) {
+  return `${item.recipe.provider}:${item.recipe.id}`;
 }
 
-function ingredientKey(item: EligiblePantryItem) {
-  return item.id;
+function ingredientKey(item: SearchIngredient) {
+  return item.key;
 }
 
 function IngredientSeparator() {
@@ -39,25 +41,25 @@ function IngredientSeparator() {
  */
 export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestionsScreenProps) {
   const pantry = usePantry();
-  const [retryToken, setRetryToken] = useState(0);
   const [query, setQuery] = useState(initialIngredient ?? '');
   const [selectedIngredient, setSelectedIngredient] = useState(initialIngredient ?? '');
-  const { eligibleItems, items, status } = useRecipeSuggestions(pantry.items, retryToken);
+  const {
+    eligibleItems, items, status, refreshing, failureNoticeId,
+    refresh, dismissFailureNotice,
+  } = useRecommendations();
   const t = useMessages();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const uniqueIngredients = useMemo(() => eligibleItems.filter((item, index, all) =>
-    all.findIndex((candidate) => candidate.ingredientName === item.ingredientName) === index,
-  ), [eligibleItems]);
+  const uniqueIngredients = eligibleItems;
   const normalizedQuery = normalizeIngredientQuery(query);
   const visibleIngredients = useMemo(() => uniqueIngredients.filter((item) =>
-    !normalizedQuery || normalizeIngredientQuery(item.foodName).includes(normalizedQuery)
-      || normalizeIngredientQuery(item.ingredientName).includes(normalizedQuery),
+    !normalizedQuery || normalizeIngredientQuery(item.name).includes(normalizedQuery),
   ), [normalizedQuery, uniqueIngredients]);
-  const activeSelection = uniqueIngredients.some((item) => item.ingredientName === selectedIngredient)
+  const activeSelection = uniqueIngredients.some((item) => item.name === selectedIngredient)
     ? selectedIngredient : '';
   const visibleRecipes = useMemo(() => activeSelection
-    ? items.filter((item) => item.matches.some((match) => match.ingredientName === activeSelection))
+    ? items.filter((item) => item.matches.some((match) => match.ingredient.name === activeSelection))
     : items,
   [activeSelection, items]);
 
@@ -78,14 +80,14 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
     setQuery(ingredient);
   }, [activeSelection]);
 
-  const renderRecipe = useCallback(({ item }: ListRenderItemInfo<RecipeSuggestion>) => (
+  const renderRecipe = useCallback(({ item }: ListRenderItemInfo<Recommendation>) => (
     <RecipeSuggestionCard item={item} onPress={handleRecipePress} />
   ), [handleRecipePress]);
 
-  const renderIngredient = useCallback(({ item }: ListRenderItemInfo<EligiblePantryItem>) => (
+  const renderIngredient = useCallback(({ item }: ListRenderItemInfo<SearchIngredient>) => (
     <IngredientFilter
       item={item}
-      isSelected={activeSelection === item.ingredientName}
+      isSelected={activeSelection === item.name}
       onSelect={handleIngredientSelect}
     />
   ), [activeSelection, handleIngredientSelect]);
@@ -112,6 +114,7 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
         contentInsetAdjustmentBehavior="automatic"
         data={visibleRecipes}
         keyExtractor={recipeKey}
+        testID="recipe-suggestions-list"
         ListHeaderComponent={
           <View style={styles.header}>
             <AppText accessibilityRole="header" variant="title">{t('recipeSuggestionsTitle')}</AppText>
@@ -141,14 +144,6 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
                 style={styles.filterList}
               />
             ) : null}
-            {status === 'partial' ? (
-              <Surface style={styles.warning}>
-                <AppText variant="error">{t('recipesPartialError')}</AppText>
-                <Button onPress={() => setRetryToken((value) => value + 1)}>
-                  <ButtonText>{t('retry')}</ButtonText>
-                </Button>
-              </Surface>
-            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -157,20 +152,34 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
               {emptyMessage}
             </AppText>
             {status === 'error' ? (
-              <Button onPress={() => setRetryToken((value) => value + 1)}>
+              <Button onPress={refresh}>
                 <ButtonText>{t('retry')}</ButtonText>
               </Button>
             ) : null}
           </View>
         }
+        onRefresh={refresh}
+        refreshing={refreshing}
         renderItem={renderRecipe}
       />
+      {failureNoticeId !== null ? (
+        <UndoSnackbar
+          key={failureNoticeId}
+          actionLabel={t('retry')}
+          bottom={insets.bottom + spacing.md}
+          message={t('recipesPartialError')}
+          onDismiss={(reason) => {
+            if (reason === 'action') refresh();
+            dismissFailureNotice();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
 
 type IngredientFilterProps = Readonly<{
-  item: EligiblePantryItem;
+  item: SearchIngredient;
   isSelected: boolean;
   onSelect: (ingredientName: string) => void;
 }>;
@@ -181,8 +190,8 @@ const IngredientFilter = memo(function IngredientFilter({ item, isSelected, onSe
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
-      onPress={() => onSelect(item.ingredientName)}
-      testID={`recipe-ingredient-filter-${item.id}`}
+      onPress={() => onSelect(item.name)}
+      testID={`recipe-ingredient-filter-${item.key}`}
       style={[
         styles.filter,
         { backgroundColor: isSelected ? colors.accent : colors.surface, borderColor: colors.border },
@@ -193,14 +202,14 @@ const IngredientFilter = memo(function IngredientFilter({ item, isSelected, onSe
         numberOfLines={1}
         style={[styles.filterText, { color: isSelected ? colors.accentText : colors.text }]}
       >
-        {item.foodName.replace(/\s+/g, ' ')}
+        {item.name.replace(/\s+/g, ' ')}
       </AppText>
     </Pressable>
   );
 });
 
 type RecipeSuggestionCardProps = Readonly<{
-  item: RecipeSuggestion;
+  item: Recommendation;
   onPress: (recipeId: string, ingredientName: string) => void;
 }>;
 
@@ -210,7 +219,7 @@ const RecipeSuggestionCard = memo(function RecipeSuggestionCard({ item, onPress 
     <Pressable
       accessibilityLabel={item.recipe.name}
       accessibilityRole="button"
-      onPress={() => onPress(item.recipe.id, item.matches[0]?.ingredientName ?? '')}
+      onPress={() => onPress(item.recipe.id, item.matches[0]?.ingredient.name ?? '')}
       style={styles.cardPressable}
     >
       <Surface style={styles.card}>
@@ -226,15 +235,19 @@ const RecipeSuggestionCard = memo(function RecipeSuggestionCard({ item, onPress 
           />
         ) : null}
         <AppText style={styles.recipeName}>{item.recipe.name}</AppText>
-        <AppText variant="muted">{t('usesPantryFoods')}</AppText>
+        <AppText variant="muted">{`${item.score.totalMatchCount}/${item.score.totalMatchCount + item.missing.length} ${t('ingredientsMatched')}`}</AppText>
+        <AppText variant="muted">{`${item.score.priorityMatchCount} ${t('priorityMatches')}`}</AppText>
+        <AppText variant="muted">{t('ingredientPresenceNotice')}</AppText>
         <View style={styles.matches}>
-          {item.matches.map((match) => (
-            <View key={match.id} style={styles.match}>
-              <AppText>{match.foodName}</AppText>
-              <ExpirationBadge expirationDate={match.expirationDate} />
+          {item.matches.flatMap((match) => match.packages.map((pkg) => (
+            <View key={`${match.ingredient.name}:${pkg.id}`} style={styles.match}>
+              <AppText>{pkg.foodName}</AppText>
+              <ExpirationBadge expirationDate={pkg.expirationDate} />
             </View>
-          ))}
+          )))}
         </View>
+        <AppText variant="muted">{item.missing.length ? `${t('missingIngredients')}: ${item.missing.map((ingredient) => ingredient.name).join(', ')}` : t('allIngredientsMatched')}</AppText>
+        <AppText variant="muted">{t('recipeSource')}</AppText>
         <AppText variant="muted">{t('viewRecipe')}</AppText>
       </Surface>
     </Pressable>
@@ -253,11 +266,10 @@ const styles = StyleSheet.create({
   filters: { paddingHorizontal: spacing.xs },
   ingredientSeparator: { width: spacing.sm },
   filter: {
-    height: 44, maxWidth: 260, justifyContent: 'center', paddingHorizontal: spacing.md,
+    minHeight: 48, maxWidth: 260, justifyContent: 'center', paddingHorizontal: spacing.md,
     borderWidth: 1, borderRadius: 999, borderCurve: 'continuous', overflow: 'hidden',
   },
   filterText: { flexShrink: 1 },
-  warning: { gap: spacing.sm },
   empty: { paddingVertical: spacing.xl, gap: spacing.md },
   cardPressable: { marginBottom: spacing.md },
   card: { gap: spacing.sm },

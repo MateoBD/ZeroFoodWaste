@@ -87,9 +87,9 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     setModalState(null);
   }
 
-  function handleFeedbackDismiss(reason: 'expired' | 'undo') {
+  function handleFeedbackDismiss(reason: 'expired' | 'action') {
     if (!currentFeedback) return;
-    if (reason === 'undo') undoAction(currentFeedback.id);
+    if (reason === 'action') undoAction(currentFeedback.id);
     else finalizeAction(currentFeedback.id);
     setFeedbackQueue((queue) => queue.slice(1));
   }
