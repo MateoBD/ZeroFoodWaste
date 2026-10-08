@@ -16,10 +16,15 @@ import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 import { normalizeIngredientQuery } from './ingredientMatcher';
+import { isRecipeForMealTime, MEAL_TIMES, mealTimeForHour } from './mealTime';
 import type { Recommendation, SearchIngredient } from './recommendations/types';
 import { useRecommendations } from './recommendations/RecommendationContext';
 
 type RecipeSuggestionsScreenProps = Readonly<{ initialIngredient?: string }>;
+
+const MEAL_TIME_LABELS = {
+  breakfast: 'mealTimeBreakfast', lunch: 'mealTimeLunch', dinner: 'mealTimeDinner',
+} as const;
 
 function recipeKey(item: Recommendation) {
   return `${item.recipe.provider}:${item.recipe.id}`;
@@ -43,6 +48,7 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
   const pantry = usePantry();
   const [query, setQuery] = useState(initialIngredient ?? '');
   const [selectedIngredient, setSelectedIngredient] = useState(initialIngredient ?? '');
+  const [mealTime, setMealTime] = useState(() => mealTimeForHour(new Date().getHours()));
   const {
     eligibleItems, items, status, refreshing, failureNoticeId,
     refresh, dismissFailureNotice,
@@ -58,10 +64,14 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
   ), [normalizedQuery, uniqueIngredients]);
   const activeSelection = uniqueIngredients.some((item) => item.name === selectedIngredient)
     ? selectedIngredient : '';
-  const visibleRecipes = useMemo(() => activeSelection
+  const selectedRecipes = useMemo(() => activeSelection
     ? items.filter((item) => item.matches.some((match) => match.ingredient.name === activeSelection))
     : items,
   [activeSelection, items]);
+  const visibleRecipes = useMemo(
+    () => selectedRecipes.filter((item) => isRecipeForMealTime(item.recipe.category, mealTime)),
+    [mealTime, selectedRecipes],
+  );
 
   const handleRecipePress = useCallback((recipeId: string, ingredientName: string) => {
     router.push({
@@ -104,7 +114,9 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
             ? t('recipesLoadError')
             : status === 'loading'
               ? t('recipesLoading')
-              : activeSelection ? t('recipesEmptySelected') : t('recipesEmptyEligible');
+              : selectedRecipes.length > 0
+                ? t('recipesEmptyMealTime')
+                : activeSelection ? t('recipesEmptySelected') : t('recipesEmptyEligible');
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -119,6 +131,24 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
           <View style={styles.header}>
             <AppText accessibilityRole="header" variant="title">{t('recipeSuggestionsTitle')}</AppText>
             <AppText variant="muted">{t('recipeSuggestionsSubtitle')}</AppText>
+            <View style={styles.mealTimes}>
+              {MEAL_TIMES.map((value) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: value === mealTime }}
+                  onPress={() => setMealTime(value)}
+                  style={[
+                    styles.filter,
+                    { backgroundColor: value === mealTime ? colors.accent : colors.surface, borderColor: colors.border },
+                  ]}
+                >
+                  <AppText style={{ color: value === mealTime ? colors.accentText : colors.text }}>
+                    {t(MEAL_TIME_LABELS[value])}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
             <TextInput
               accessibilityLabel={t('recipeIngredientFilter')}
               onChangeText={(value) => {
@@ -262,6 +292,7 @@ const styles = StyleSheet.create({
     minHeight: 48, borderWidth: 1, borderRadius: 12, borderCurve: 'continuous',
     paddingHorizontal: spacing.md, fontSize: 16,
   },
+  mealTimes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   filterList: { height: 48 },
   filters: { paddingHorizontal: spacing.xs },
   ingredientSeparator: { width: spacing.sm },
