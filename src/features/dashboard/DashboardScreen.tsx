@@ -38,7 +38,8 @@ const timeframeOptions: {
 /**
  * Displays consumed-versus-wasted metrics sourced from the shared pantry history.
  *
- * @returns The dashboard tab content.
+ * @return {React.JSX.Element} The dashboard tab content with timeframe controls,
+ * outcome metrics, charts, and restore history.
  */
 export function DashboardScreen() {
   const { events, status, restoreEvent } = usePantry();
@@ -221,6 +222,16 @@ export function DashboardScreen() {
   );
 }
 
+/**
+ * Renders one dashboard metric as a themed card and optionally exposes it as
+ * an accessible button that opens the matching outcome history.
+ *
+ * @param label - The localized metric name displayed below the value.
+ * @param value - The numeric or formatted value displayed prominently.
+ * @param color - The theme color used for the metric value.
+ * @param onPress - Optional callback invoked when the metric card is selected.
+ * @return {React.JSX.Element} A static metric surface or a pressable metric card.
+ */
 function MetricCard({
   label,
   value,
@@ -253,6 +264,16 @@ function MetricCard({
   );
 }
 
+/**
+ * Displays the selected consumed or thrown-away events in a modal list and
+ * provides restoration controls for events that contain an item snapshot.
+ *
+ * @param events - Outcome events filtered to the selected dashboard timeframe.
+ * @param onClose - Callback that closes the history modal.
+ * @param onRestore - Callback that restores an event's pantry item by ID.
+ * @param outcome - The selected outcome, or `null` while the modal is hidden.
+ * @return {React.JSX.Element} The modal containing outcome history and restore actions.
+ */
 function OutcomeHistoryModal({
   events,
   onClose,
@@ -346,6 +367,13 @@ function OutcomeHistoryModal({
   );
 }
 
+/**
+ * Formats an outcome timestamp using the user's local medium date and short
+ * time presentation for display in the history list.
+ *
+ * @param timestamp - The canonical ISO timestamp recorded for the outcome.
+ * @return {string} A localized date-and-time label for the event.
+ */
 function formatOutcomeDate(timestamp: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
@@ -353,6 +381,13 @@ function formatOutcomeDate(timestamp: string): string {
   }).format(new Date(timestamp));
 }
 
+/**
+ * Renders one color marker and localized label for the dashboard ratio chart.
+ *
+ * @param color - The color used for the legend marker.
+ * @param label - The localized outcome label shown beside the marker.
+ * @return {React.JSX.Element} The chart legend item.
+ */
 function Legend({ color, label }: { color: string; label: string }) {
   return (
     <View style={styles.legendItem}>

@@ -203,6 +203,9 @@ export function usePantryItems(
   /**
    * Restores a finalized outcome from the dashboard and removes it from the
    * measured history. Legacy events without an item snapshot are read-only.
+   *
+   * @param id - The durable outcome event ID selected from dashboard history.
+   * @return {boolean} Whether the event was restored and both local states were updated.
    */
   function restoreEvent(id: string) {
     if (statusRef.current !== 'ready') return false;

@@ -4,6 +4,13 @@ import { isValidCalendarDate } from "./calendarDate";
 
 type StoredPantryEvents = { version: 2; events: PantryEvent[] };
 
+/**
+ * Validates that an unknown value is a complete TheMealDB ingredient reference
+ * suitable for inclusion in a restorable pantry-item snapshot.
+ *
+ * @param value - The unknown value read from persisted event storage.
+ * @return {boolean} Whether the value contains the expected provider, ID, and name.
+ */
 function isIngredientReference(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
@@ -18,6 +25,13 @@ function isIngredientReference(value: unknown): boolean {
   );
 }
 
+/**
+ * Validates the complete pantry-item snapshot stored inside a restorable event,
+ * including its identity, package date, optional recipe reference, and timestamp.
+ *
+ * @param value - The unknown snapshot value read from persisted event storage.
+ * @return {boolean} Whether the value is a valid pantry item that can be restored.
+ */
 function isPantryItem(value: unknown): value is PantryItem {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
@@ -37,12 +51,27 @@ function isPantryItem(value: unknown): value is PantryItem {
   );
 }
 
+/**
+ * Checks whether a stored timestamp is a real ISO timestamp in canonical form,
+ * preventing malformed event dates from affecting dashboard calculations.
+ *
+ * @param value - The unknown timestamp value read from persisted storage.
+ * @return {value is string} Whether the value is a canonical ISO timestamp string.
+ */
 function isCanonicalTimestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const date = new Date(value);
   return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
+/**
+ * Validates an event's required history fields and, for version-two data,
+ * validates any optional pantry snapshot used by the permanent restore action.
+ *
+ * @param value - The unknown event value read from persisted storage.
+ * @param supportsSnapshots - Whether the enclosing storage version supports snapshots.
+ * @return {value is PantryEvent} Whether the value is a valid pantry event.
+ */
 function isPantryEvent(value: unknown, supportsSnapshots: boolean): value is PantryEvent {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false;
@@ -70,7 +99,7 @@ function isPantryEvent(value: unknown, supportsSnapshots: boolean): value is Pan
  * data is rejected so a damaged history is never shown as trustworthy metrics.
  *
  * @param raw - Stored JSON, or null when no events have been saved.
- * @returns Valid pantry events in their stored order. Version 1 events remain
+ * @return {PantryEvent[]} Valid pantry events in their stored order. Version 1 events remain
  * readable but do not contain enough data to restore the original item.
  * @throws Error when the stored document is malformed or unsupported.
  */
@@ -108,7 +137,7 @@ export function parseStoredPantryEvents(raw: string | null): PantryEvent[] {
  * Serializes pantry outcome events as a versioned device-local document.
  *
  * @param events - The complete event history to persist.
- * @returns The version 2 event document as JSON.
+ * @return {string} The version 2 event document serialized as JSON.
  */
 export function encodeStoredPantryEvents(
   events: readonly PantryEvent[],

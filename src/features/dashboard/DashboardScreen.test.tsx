@@ -11,6 +11,13 @@ jest.mock("expo-localization", () => ({ useLocales: jest.fn() }));
 
 const mockUseLocales = useLocales as jest.Mock;
 
+/**
+ * Produces a canonical timestamp a fixed number of calendar days before now
+ * for deterministic dashboard event fixtures.
+ *
+ * @param days - The number of calendar days to subtract from the current date.
+ * @return {string} The resulting timestamp in canonical ISO format.
+ */
 function isoDaysAgo(days: number) {
   const date = new Date();
   date.setDate(date.getDate() - days);

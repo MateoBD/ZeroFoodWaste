@@ -23,24 +23,62 @@ export type DashboardMetrics = Readonly<{
   periods: DashboardPeriod[];
 }>;
 
+/**
+ * Normalizes a Date to local midnight so timeframe comparisons use calendar
+ * days rather than the input time of day.
+ *
+ * @param date - The date whose local calendar day should be preserved.
+ * @return {Date} A new Date representing local midnight on the same day.
+ */
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+/**
+ * Creates a date shifted by a number of local calendar days while preserving
+ * the original Date object and its time-of-day fields.
+ *
+ * @param date - The starting date for the calculation.
+ * @param days - The signed number of calendar days to add.
+ * @return {Date} A new Date shifted by the requested number of days.
+ */
 function addDays(date: Date, days: number): Date {
   const nextDate = new Date(date);
   nextDate.setDate(nextDate.getDate() + days);
   return nextDate;
 }
 
+/**
+ * Converts a Date into the zero-padded local calendar key used by weekly
+ * dashboard periods.
+ *
+ * @param date - The date whose local year, month, and day should be encoded.
+ * @return {string} A `YYYY-MM-DD` calendar key.
+ */
 function calendarDayKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Converts a Date into the zero-padded local month key used by all-time
+ * dashboard periods.
+ *
+ * @param date - The date whose local year and month should be encoded.
+ * @return {string} A `YYYY-MM` month key.
+ */
 function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * Determines whether an outcome belongs to the selected dashboard timeframe,
+ * using local calendar boundaries for weekly and monthly views.
+ *
+ * @param event - The pantry outcome whose occurrence date is checked.
+ * @param timeframe - The dashboard range against which the event is tested.
+ * @param now - The local reference date used to calculate the range boundary.
+ * @return {boolean} Whether the event falls within the selected timeframe.
+ */
 function eventIsInTimeframe(
   event: PantryEvent,
   timeframe: DashboardTimeframe,
@@ -56,10 +94,17 @@ function eventIsInTimeframe(
 }
 
 /**
- * Returns the outcome events represented by one dashboard metric.
+ * Returns the outcome events represented by one dashboard metric and applies
+ * the same local calendar boundaries used to calculate dashboard totals.
  *
  * This is shared by the metric counts and the dashboard's restore list so
  * both surfaces always use identical timeframe boundaries.
+ *
+ * @param events - The complete stored consumed and wasted outcome history.
+ * @param timeframe - The dashboard range whose events should be returned.
+ * @param outcome - Optional outcome filter for consumed or wasted events.
+ * @param now - The local reference date used to calculate relative ranges.
+ * @return {PantryEvent[]} Events matching the selected range and optional outcome.
  */
 export function filterDashboardEvents(
   events: readonly PantryEvent[],
@@ -74,10 +119,22 @@ export function filterDashboardEvents(
   );
 }
 
+/**
+ * Creates the short localized weekday label used by weekly dashboard periods.
+ *
+ * @param date - The period date whose weekday should be displayed.
+ * @return {string} The localized abbreviated weekday label.
+ */
 function formatDayLabel(date: Date): string {
   return new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(date);
 }
 
+/**
+ * Creates the localized month-and-day label used by monthly chart buckets.
+ *
+ * @param startDate - The first date represented by the chart bucket.
+ * @return {string} The localized abbreviated month and day label.
+ */
 function formatWeekLabel(startDate: Date): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -85,6 +142,12 @@ function formatWeekLabel(startDate: Date): string {
   }).format(startDate);
 }
 
+/**
+ * Creates the localized month-and-year label used by all-time chart buckets.
+ *
+ * @param date - The first day of the month represented by the bucket.
+ * @return {string} The localized abbreviated month and year label.
+ */
 function formatMonthLabel(date: Date): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -92,6 +155,15 @@ function formatMonthLabel(date: Date): string {
   }).format(date);
 }
 
+/**
+ * Builds the empty chart periods for the selected range, including historical
+ * all-time months discovered from the stored event history.
+ *
+ * @param timeframe - The dashboard range whose periods should be created.
+ * @param now - The local reference date used for relative ranges.
+ * @param events - Stored events used to discover all-time month buckets.
+ * @return {DashboardPeriod[]} Periods initialized with zero consumed and wasted counts.
+ */
 function createPeriods(
   timeframe: DashboardTimeframe,
   now: Date,
@@ -137,6 +209,16 @@ function createPeriods(
   });
 }
 
+/**
+ * Finds the chart period containing an event so the caller can increment the
+ * appropriate consumed or wasted count without duplicating range logic.
+ *
+ * @param eventDate - The event occurrence date to place in a period.
+ * @param timeframe - The dashboard range that defines period boundaries.
+ * @param now - The local reference date used for monthly relative buckets.
+ * @param periods - The initialized periods available for the selected range.
+ * @return {number} The matching period index, or `-1` when the event is outside the chart.
+ */
 function periodIndexForEvent(
   eventDate: Date,
   timeframe: DashboardTimeframe,
@@ -169,7 +251,7 @@ function periodIndexForEvent(
  * @param events - Consumed and wasted outcomes from the pantry history.
  * @param timeframe - The range selected by the user.
  * @param now - The current local date, injectable for deterministic tests.
- * @returns Counts, waste percentage, and chart-ready periods.
+ * @return {DashboardMetrics} Counts, waste percentage, and chart-ready periods.
  */
 export function calculateDashboardMetrics(
   events: readonly PantryEvent[],
