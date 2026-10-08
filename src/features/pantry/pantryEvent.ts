@@ -1,3 +1,5 @@
+import type { PantryItem } from './pantryItem';
+
 /** The outcome recorded when a pantry item leaves the active pantry. */
 export type PantryEventOutcome = "consumed" | "wasted";
 
@@ -8,4 +10,9 @@ export type PantryEvent = Readonly<{
   itemName: string;
   outcome: PantryEventOutcome;
   occurredAt: string;
+  /**
+   * The item before it left the pantry. Older events do not have this field
+   * and can therefore be viewed but not restored.
+   */
+  itemSnapshot?: PantryItem;
 }>;

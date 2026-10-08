@@ -89,6 +89,12 @@ export const en = {
   consumedVsWasted: 'Consumed versus thrown away',
   outcomesOverTime: 'Outcomes over time',
   dashboardEmpty: 'No food outcomes recorded in this timeframe yet.',
+  consumedHistoryTitle: 'Consumed foods',
+  wastedHistoryTitle: 'Thrown-away foods',
+  historyRestoreDescription: 'Restore a food if this outcome was recorded by mistake.',
+  historyEmpty: 'No foods recorded in this timeframe.',
+  restoreToPantry: 'Restore to pantry',
+  restoreUnavailable: 'Cannot restore older record',
 } as const;
 
 /**
@@ -192,4 +198,10 @@ export const es: Messages = {
   consumedVsWasted: 'Consumido frente a tirado',
   outcomesOverTime: 'Resultados a lo largo del tiempo',
   dashboardEmpty: 'Todavía no hay resultados de alimentos en este periodo.',
+  consumedHistoryTitle: 'Alimentos consumidos',
+  wastedHistoryTitle: 'Alimentos tirados',
+  historyRestoreDescription: 'Restaura un alimento si este resultado se registró por error.',
+  historyEmpty: 'No hay alimentos registrados en este periodo.',
+  restoreToPantry: 'Restaurar en la despensa',
+  restoreUnavailable: 'No se puede restaurar este registro antiguo',
 };

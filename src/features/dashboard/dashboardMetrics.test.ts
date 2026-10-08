@@ -1,4 +1,7 @@
-import { calculateDashboardMetrics } from "./dashboardMetrics";
+import {
+  calculateDashboardMetrics,
+  filterDashboardEvents,
+} from "./dashboardMetrics";
 import type { PantryEvent } from "@/features/pantry/pantryEvent";
 
 const events: PantryEvent[] = [
@@ -69,5 +72,15 @@ describe("calculateDashboardMetrics", () => {
       wastePercentage: 33,
     });
     expect(metrics.periods).toHaveLength(2);
+  });
+
+  it("filters the events shown by a metric using the selected timeframe", () => {
+    expect(filterDashboardEvents(events, "weekly", "wasted", now)).toEqual([
+      events[1],
+    ]);
+    expect(filterDashboardEvents(events, "all-time", "consumed", now)).toEqual([
+      events[0],
+      events[2],
+    ]);
   });
 });

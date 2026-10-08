@@ -1,13 +1,49 @@
 import type { PantryEvent } from "./pantryEvent";
+import type { PantryItem } from "./pantryItem";
+import { isValidCalendarDate } from "./calendarDate";
 
-type StoredPantryEvents = { version: 1; events: PantryEvent[] };
+type StoredPantryEvents = { version: 2; events: PantryEvent[] };
 
-function isCanonicalTimestamp(value: string): boolean {
+function isIngredientReference(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const reference = value as Record<string, unknown>;
+  return (
+    reference.provider === "themealdb" &&
+    typeof reference.id === "string" &&
+    reference.id.trim().length > 0 &&
+    typeof reference.name === "string" &&
+    reference.name.trim().length > 0
+  );
+}
+
+function isPantryItem(value: unknown): value is PantryItem {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "string" &&
+    item.id.trim().length > 0 &&
+    typeof item.name === "string" &&
+    item.name.trim().length > 0 &&
+    (item.recipeIngredient === null || isIngredientReference(item.recipeIngredient)) &&
+    typeof item.expirationDate === "string" &&
+    isValidCalendarDate(item.expirationDate) &&
+    typeof item.createdAt === "string" &&
+    isCanonicalTimestamp(item.createdAt)
+  );
+}
+
+function isCanonicalTimestamp(value: unknown): value is string {
+  if (typeof value !== "string") return false;
   const date = new Date(value);
   return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
-function isPantryEvent(value: unknown): value is PantryEvent {
+function isPantryEvent(value: unknown, supportsSnapshots: boolean): value is PantryEvent {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false;
 
@@ -21,7 +57,9 @@ function isPantryEvent(value: unknown): value is PantryEvent {
     event.itemName.trim().length > 0 &&
     (event.outcome === "consumed" || event.outcome === "wasted") &&
     typeof event.occurredAt === "string" &&
-    isCanonicalTimestamp(event.occurredAt)
+    isCanonicalTimestamp(event.occurredAt) &&
+    (event.itemSnapshot === undefined ||
+      (supportsSnapshots && isPantryItem(event.itemSnapshot)))
   );
 }
 
@@ -32,7 +70,8 @@ function isPantryEvent(value: unknown): value is PantryEvent {
  * data is rejected so a damaged history is never shown as trustworthy metrics.
  *
  * @param raw - Stored JSON, or null when no events have been saved.
- * @returns Valid pantry events in their stored order.
+ * @returns Valid pantry events in their stored order. Version 1 events remain
+ * readable but do not contain enough data to restore the original item.
  * @throws Error when the stored document is malformed or unsupported.
  */
 export function parseStoredPantryEvents(raw: string | null): PantryEvent[] {
@@ -50,13 +89,13 @@ export function parseStoredPantryEvents(raw: string | null): PantryEvent[] {
   }
 
   const stored = data as Record<string, unknown>;
-  if (stored.version !== 1 || !Array.isArray(stored.events)) {
+  if ((stored.version !== 1 && stored.version !== 2) || !Array.isArray(stored.events)) {
     throw new Error("Pantry event storage has an unsupported format");
   }
 
   const ids = new Set<string>();
   for (const event of stored.events) {
-    if (!isPantryEvent(event) || ids.has(event.id)) {
+    if (!isPantryEvent(event, stored.version === 2) || ids.has(event.id)) {
       throw new Error("Pantry event storage contains an invalid event");
     }
     ids.add(event.id);
@@ -69,11 +108,11 @@ export function parseStoredPantryEvents(raw: string | null): PantryEvent[] {
  * Serializes pantry outcome events as a versioned device-local document.
  *
  * @param events - The complete event history to persist.
- * @returns The versioned event document as JSON.
+ * @returns The version 2 event document as JSON.
  */
 export function encodeStoredPantryEvents(
   events: readonly PantryEvent[],
 ): string {
-  const data: StoredPantryEvents = { version: 1, events: [...events] };
+  const data: StoredPantryEvents = { version: 2, events: [...events] };
   return JSON.stringify(data);
 }

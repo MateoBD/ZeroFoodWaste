@@ -180,6 +180,7 @@ export function usePantryItems(
       itemName: item.name,
       outcome,
       occurredAt: new Date().toISOString(),
+      itemSnapshot: item,
     };
     actionsRef.current = [...actionsRef.current, action];
     saveState(
@@ -197,6 +198,34 @@ export function usePantryItems(
 
   function wasteItem(id: string) {
     return removeItemWithOutcome(id, 'wasted');
+  }
+
+  /**
+   * Restores a finalized outcome from the dashboard and removes it from the
+   * measured history. Legacy events without an item snapshot are read-only.
+   */
+  function restoreEvent(id: string) {
+    if (statusRef.current !== 'ready') return false;
+    const event = eventsRef.current.find((candidate) => candidate.id === id);
+    if (!event?.itemSnapshot) return false;
+    if (itemsRef.current.some((item) => item.id === event.itemSnapshot!.id)) return false;
+
+    const action: PantryAction = {
+      id: nextActionId(),
+      kind: 'restore',
+      item: event.itemSnapshot,
+      undoable: false,
+    };
+    const nextEvents = eventsRef.current.filter((candidate) => candidate.id !== id);
+    actionsRef.current = [...actionsRef.current, action];
+    saveState(
+      replayPantryActions(baseRef.current, actionsRef.current),
+      nextEvents,
+      action.id,
+      true,
+    );
+    compactActions();
+    return true;
   }
 
   function undoAction(id: string) {
@@ -224,5 +253,6 @@ export function usePantryItems(
   return {
     items, events, status, hasSaveError, failedActionIds, addItem, updateItem,
     consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
+    restoreEvent,
   };
 }

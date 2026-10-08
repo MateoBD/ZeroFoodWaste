@@ -1,4 +1,7 @@
-import type { PantryEvent } from "@/features/pantry/pantryEvent";
+import type {
+  PantryEvent,
+  PantryEventOutcome,
+} from "@/features/pantry/pantryEvent";
 
 /** The dashboard ranges supported by the food-waste report. */
 export type DashboardTimeframe = "weekly" | "monthly" | "all-time";
@@ -36,6 +39,39 @@ function calendarDayKey(date: Date): string {
 
 function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function eventIsInTimeframe(
+  event: PantryEvent,
+  timeframe: DashboardTimeframe,
+  now: Date,
+): boolean {
+  if (timeframe === "all-time") return true;
+
+  const today = startOfDay(now);
+  const rangeStart =
+    timeframe === "weekly" ? addDays(today, -6) : addDays(today, -29);
+  const eventDate = new Date(event.occurredAt);
+  return eventDate >= rangeStart && eventDate < addDays(today, 1);
+}
+
+/**
+ * Returns the outcome events represented by one dashboard metric.
+ *
+ * This is shared by the metric counts and the dashboard's restore list so
+ * both surfaces always use identical timeframe boundaries.
+ */
+export function filterDashboardEvents(
+  events: readonly PantryEvent[],
+  timeframe: DashboardTimeframe,
+  outcome?: PantryEventOutcome,
+  now: Date = new Date(),
+): PantryEvent[] {
+  return events.filter(
+    (event) =>
+      (!outcome || event.outcome === outcome) &&
+      eventIsInTimeframe(event, timeframe, now),
+  );
 }
 
 function formatDayLabel(date: Date): string {
@@ -140,25 +176,14 @@ export function calculateDashboardMetrics(
   timeframe: DashboardTimeframe,
   now: Date = new Date(),
 ): DashboardMetrics {
-  const today = startOfDay(now);
-  const rangeStart =
-    timeframe === "weekly"
-      ? addDays(today, -6)
-      : timeframe === "monthly"
-        ? addDays(today, -29)
-        : null;
   const periods = createPeriods(timeframe, now, events);
   const periodCounts = periods.map((period) => ({ ...period }));
   let consumed = 0;
   let wasted = 0;
 
   for (const event of events) {
+    if (!eventIsInTimeframe(event, timeframe, now)) continue;
     const eventDate = new Date(event.occurredAt);
-    if (
-      rangeStart &&
-      (eventDate < rangeStart || eventDate >= addDays(today, 1))
-    )
-      continue;
     if (event.outcome === "consumed") consumed += 1;
     else wasted += 1;
 

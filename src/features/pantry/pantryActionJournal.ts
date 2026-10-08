@@ -5,7 +5,8 @@ import type { PantryItemDraft } from './usePantryItems';
 export type PantryAction =
   | { id: string; kind: 'add'; item: PantryItem; undoable: false }
   | { id: string; kind: 'edit'; itemId: string; changes: Partial<PantryItemDraft>; undoable: boolean }
-  | { id: string; kind: 'consume' | 'waste'; itemId: string; undoable: boolean };
+  | { id: string; kind: 'consume' | 'waste'; itemId: string; undoable: boolean }
+  | { id: string; kind: 'restore'; item: PantryItem; undoable: false };
 
 /**
  * Applies pantry changes in order, preserving item identity and list order.
@@ -20,6 +21,7 @@ export type PantryAction =
 export function replayPantryActions(base: readonly PantryItem[], actions: readonly PantryAction[]): PantryItem[] {
   return actions.reduce<PantryItem[]>((items, action) => {
     if (action.kind === 'add') return [...items, action.item];
+    if (action.kind === 'restore') return [...items, action.item];
     if (action.kind === 'consume' || action.kind === 'waste') {
       return items.filter((item) => item.id !== action.itemId);
     }
