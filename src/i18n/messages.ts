@@ -81,6 +81,12 @@ export const en = {
   expiredYesterday: 'Expired yesterday',
   daysAgo: 'days ago',
   consumed: 'Consumed',
+  cameraPermissionRequired: 'Camera access is needed to scan barcodes.',
+  grantCameraPermission: 'Allow camera access',
+  scanBarcode: 'Scan barcode',
+  productNotFound: "We couldn't find this product. You can scan again or enter it manually.",
+  scanAgain: 'Scan again',
+  enterManually: 'Enter manually',
 } as const;
 
 /**
@@ -176,4 +182,10 @@ export const es: Messages = {
   expiredYesterday: 'Caducó ayer',
   daysAgo: 'días atrás',
   consumed: 'Consumido',
+  cameraPermissionRequired: 'Se necesita acceso a la cámara para escanear códigos de barras.',
+  grantCameraPermission: 'Permitir acceso a la cámara',
+  scanBarcode: 'Escanear código de barras',
+  productNotFound: 'No hemos encontrado este producto. Puedes volver a escanear o introducirlo a mano.',
+  scanAgain: 'Escanear de nuevo',
+  enterManually: 'Introducir a mano',
 };
