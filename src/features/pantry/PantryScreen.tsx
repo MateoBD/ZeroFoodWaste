@@ -1,6 +1,6 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -56,6 +56,13 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
+  const { scannedName } = useLocalSearchParams<{ scannedName?: string }>();
+
+  useEffect(() => {
+    if (!scannedName) return;
+    setModalState({ mode: 'add', initialName: scannedName });
+    router.setParams({ scannedName: undefined });
+  }, [scannedName]);
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -66,8 +73,8 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     ? items.find((item) => item.id === modalState.itemId) : undefined;
   const currentFeedback = feedbackQueue[0];
 
-  function handleOpenForm() {
-    setModalState({ mode: 'add' });
+  function handleOpenForm(initialName?: string) {
+    setModalState({ mode: 'add', initialName });
   }
 
   const handleOpenDetails = useCallback((itemId: string) => {
@@ -142,7 +149,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         <Pressable
           accessibilityLabel={t('addFood')}
           accessibilityRole="button"
-          onPress={handleOpenForm}
+          onPress={() => handleOpenForm()}
           style={[
             styles.addButton,
             {
