@@ -14,19 +14,21 @@ import { openFoodFactsProvider } from '@/features/barcode/api/openFoodFactsClien
 export function BarcodeScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const t = useMessages();
 
   async function handleBarcodeScanned({ data }: { data: string }) {
     if (isProcessing) return;
     setIsProcessing(true);
-
     try {
       const product = await openFoodFactsProvider.getByBarcode(data);
       if (product?.name) {
         router.dismissTo({ pathname: '/', params: { scannedName: product.name } });
+      } else {
+        setNotFound(true);
       }
-    } catch (error) {
-      console.log('Lookup failed:', error);
+    } catch {
+      setNotFound(true);
     } finally {
       setIsProcessing(false);
     }
@@ -52,11 +54,22 @@ export function BarcodeScannerScreen() {
       <CameraView
         style={styles.camera}
         facing="back"
-        onBarcodeScanned={isProcessing ? undefined : handleBarcodeScanned}
+        onBarcodeScanned={isProcessing || notFound ? undefined : handleBarcodeScanned}
       />
       {isProcessing ? (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#ffffff" />
+        </View>
+      ) : null}
+      {notFound ? (
+        <View style={styles.overlay}>
+          <AppText style={styles.overlayText}>{t('productNotFound')}</AppText>
+          <Button onPress={() => setNotFound(false)}>
+            <ButtonText>{t('scanAgain')}</ButtonText>
+          </Button>
+          <Button onPress={() => router.dismissTo({ pathname: '/', params: { manualEntry: '1' } })}>
+            <ButtonText>{t('enterManually')}</ButtonText>
+          </Button>
         </View>
       ) : null}
     </View>
@@ -73,4 +86,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  overlayText: { color: '#ffffff', textAlign: 'center', paddingHorizontal: 24 },
 });

@@ -56,13 +56,16 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
-  const { scannedName } = useLocalSearchParams<{ scannedName?: string }>();
-
+  const { scannedName, manualEntry } = useLocalSearchParams<{
+    scannedName?: string;
+    manualEntry?: string;
+  }>();
+  
   useEffect(() => {
-    if (!scannedName) return;
+    if (!scannedName && !manualEntry) return;
     setModalState({ mode: 'add', initialName: scannedName });
-    router.setParams({ scannedName: undefined });
-  }, [scannedName]);
+    router.setParams({ scannedName: undefined, manualEntry: undefined });
+  }, [scannedName, manualEntry]);
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
