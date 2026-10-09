@@ -25,4 +25,6 @@ export type RecipeDetail = RecipeSummary & {
   ingredients: RecipeIngredient[];
   instructions: string;
   sourceUrl: string | null;
+  /** Provider category; absent on recipes saved before categories were stored. */
+  category?: string | null;
 };
