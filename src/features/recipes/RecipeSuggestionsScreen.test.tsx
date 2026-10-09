@@ -8,6 +8,7 @@ import { PantryProvider } from '@/features/pantry/PantryContext';
 import { localDateToCalendarDate } from '@/features/pantry/calendarDate';
 import { PANTRY_STORAGE_KEY } from '@/features/pantry/pantryRepository';
 
+import { FavoriteRecipesProvider } from './favorites/FavoriteRecipesContext';
 import { RecipeSuggestionsScreen } from './RecipeSuggestionsScreen';
 import { recipeRequestCache } from './recommendations/sharedCache';
 import { RecommendationProvider } from './recommendations/RecommendationContext';
@@ -36,7 +37,7 @@ describe('RecipeSuggestionsScreen', () => {
   it('explains that suggestions need pantry food when the pantry is empty', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     expect(await screen.findByText('Your pantry is empty. Add food to get recipe suggestions.')).toBeTruthy();
@@ -64,7 +65,7 @@ describe('RecipeSuggestionsScreen', () => {
     } as Response);
 
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     expect(await screen.findByRole('button', { name: 'Teriyaki Chicken' })).toBeTruthy();
@@ -74,6 +75,9 @@ describe('RecipeSuggestionsScreen', () => {
     expect(screen.getByText('1/1 ingredients matched')).toBeTruthy();
     expect(screen.getByText('All ingredient names matched')).toBeTruthy();
     expect(screen.getByText('Source: TheMealDB')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Save to favorites: Teriyaki Chicken' }));
+    expect(await screen.findByRole('button', { name: 'Remove from favorites: Teriyaki Chicken' })).toBeTruthy();
+    expect(router.push).not.toHaveBeenCalled();
     fireEvent.press(screen.getByRole('button', { name: 'Teriyaki Chicken' }));
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({
       params: { ingredient: 'Chicken', mealId: '52772' },
@@ -109,7 +113,7 @@ describe('RecipeSuggestionsScreen', () => {
       } as Response;
     });
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     expect(await screen.findByRole('button', { name: 'Saved chicken soup' })).toBeTruthy();
@@ -140,7 +144,7 @@ describe('RecipeSuggestionsScreen', () => {
       } as Response;
     });
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     expect(await screen.findByRole('button', { name: 'Chicken soup' })).toBeTruthy();
@@ -168,7 +172,7 @@ describe('RecipeSuggestionsScreen', () => {
     } as Response);
 
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     expect(await screen.findByText('No recipes matched your pantry ingredients.')).toBeTruthy();
@@ -192,7 +196,7 @@ describe('RecipeSuggestionsScreen', () => {
       json: async () => ({ meals: null }),
     } as Response);
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     const label = await screen.findByText('Chicken');
@@ -231,7 +235,7 @@ describe('RecipeSuggestionsScreen', () => {
       } as Response;
     });
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
     await screen.findByRole('button', { name: 'Chicken curry' });
     await screen.findByRole('button', { name: 'Milk pudding' });
@@ -283,7 +287,7 @@ describe('RecipeSuggestionsScreen', () => {
       strIngredient1: 'Chicken', strIngredient2: 'Carrot', strMeasure2: '2', strInstructions: 'Cook',
     }] }) } as Response);
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
     await screen.findByRole('button', { name: 'Chicken soup' });
     expect(screen.getByText('1/2 ingredientes coincidentes')).toBeTruthy();
