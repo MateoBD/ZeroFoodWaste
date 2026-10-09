@@ -17,6 +17,7 @@ export default function TabLayout() {
     <NativeTabs
       backgroundColor={colors.surface}
       disableTransparentOnScrollEdge
+      iconColor={{ default: colors.mutedText, selected: colors.accent }}
       tintColor={colors.accent}
     >
       <NativeTabs.Trigger name="index">
