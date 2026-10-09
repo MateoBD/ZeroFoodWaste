@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/useTheme';
 import { ExpirationBadge } from '@/features/pantry/ExpirationBadge';
 import { usePantry } from '@/features/pantry/PantryContext';
 import type { PantryItem } from '@/features/pantry/pantryItem';
+import { FavoriteButton } from './favorites/FavoriteButton';
 import { normalizeIngredientQuery } from './ingredientMatcher';
 
 import { localDateToCalendarDate } from '@/features/pantry/calendarDate';
@@ -53,7 +54,10 @@ export function RecipeDetailScreen({ mealId, pantryItems = [] }: RecipeDetailScr
       contentInsetAdjustmentBehavior="automatic"
       style={[styles.screen, { backgroundColor: colors.background }]}
     >
-      <AppText accessibilityRole="header" variant="title">{item.name}</AppText>
+      <View style={styles.titleRow}>
+        <AppText accessibilityRole="header" style={styles.title} variant="title">{item.name}</AppText>
+        <FavoriteButton recipe={item} />
+      </View>
       {item.imageUrl ? (
         <Image
           accessibilityLabel={item.name}
@@ -134,6 +138,8 @@ function RecipeState({ message, variant = 'body' }: RecipeStateProps) {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: spacing.md, gap: spacing.md },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  title: { flex: 1 },
   image: { width: '100%', height: 240, borderRadius: 12 },
   section: { gap: spacing.sm },
   ingredient: { gap: spacing.xs, paddingVertical: spacing.xs },

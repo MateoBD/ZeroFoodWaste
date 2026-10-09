@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { PantryProvider } from '@/features/pantry/PantryContext';
+import { FavoriteRecipesProvider } from '@/features/recipes/favorites/FavoriteRecipesContext';
 import { RecommendationProvider } from '@/features/recipes/recommendations/RecommendationContext';
 import { useMessages } from '@/i18n/useMessages';
 import { AppSettingsProvider } from '@/settings/AppSettingsContext';
@@ -32,24 +33,26 @@ function RootNavigation() {
   return (
     <PantryProvider>
       <RecommendationProvider>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            contentStyle: { backgroundColor: colors.background },
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="recipes/[ingredient]/index"
-            options={{ headerBackTitle: t('recipesTab'), title: t('recipeResultsTitle') }}
-          />
-          <Stack.Screen
-            name="recipes/[ingredient]/[mealId]"
-            options={{ headerBackTitle: t('recipesTab'), title: t('recipeDetailTitle') }}
-          />
-        </Stack>
+        <FavoriteRecipesProvider>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <Stack
+            screenOptions={{
+              contentStyle: { backgroundColor: colors.background },
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.text,
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="recipes/[ingredient]/index"
+              options={{ headerBackTitle: t('recipesTab'), title: t('recipeResultsTitle') }}
+            />
+            <Stack.Screen
+              name="recipes/[ingredient]/[mealId]"
+              options={{ headerBackTitle: t('recipesTab'), title: t('recipeDetailTitle') }}
+            />
+          </Stack>
+        </FavoriteRecipesProvider>
       </RecommendationProvider>
     </PantryProvider>
   );

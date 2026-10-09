@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Surface } from '@/components/ui/Surface';
@@ -7,6 +7,7 @@ import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
+import { FavoriteButton } from './favorites/FavoriteButton';
 import type { RecipeSummary } from './recipe';
 import { useRecipeSearch } from './useRecipeSearch';
 
@@ -63,27 +64,30 @@ type RecipeResultCardProps = {
 };
 
 /**
- * Renders one tappable recipe summary in an ingredient-search result list.
+ * Renders one tappable recipe summary in a recipe list.
  *
  * @param props - The summary to render and its selection callback.
  * @returns A pressable recipe-result card.
  */
-function RecipeResultCard({ recipe, onPress }: RecipeResultCardProps) {
+export function RecipeResultCard({ recipe, onPress }: RecipeResultCardProps) {
   const t = useMessages();
 
   return (
-    <Pressable
-      accessibilityLabel={recipe.name}
-      accessibilityRole="button"
-      onPress={() => onPress(recipe)}
-      style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
-    >
-      <Surface style={styles.card}>
-        {recipe.imageUrl ? <Image accessibilityIgnoresInvertColors source={{ uri: recipe.imageUrl }} style={styles.image} /> : null}
-        <AppText style={styles.recipeName}>{recipe.name}</AppText>
-        <AppText variant="muted">{t('viewRecipe')}</AppText>
-      </Surface>
-    </Pressable>
+    <View>
+      <Pressable
+        accessibilityLabel={recipe.name}
+        accessibilityRole="button"
+        onPress={() => onPress(recipe)}
+        style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+      >
+        <Surface style={styles.card}>
+          {recipe.imageUrl ? <Image accessibilityIgnoresInvertColors source={{ uri: recipe.imageUrl }} style={styles.image} /> : null}
+          <AppText style={[styles.recipeName, !recipe.imageUrl && styles.nameBesideFavorite]}>{recipe.name}</AppText>
+          <AppText variant="muted">{t('viewRecipe')}</AppText>
+        </Surface>
+      </Pressable>
+      <FavoriteButton overlay recipe={recipe} />
+    </View>
   );
 }
 
@@ -93,4 +97,5 @@ const styles = StyleSheet.create({
   card: { gap: spacing.sm },
   image: { width: '100%', height: 180, borderRadius: 10 },
   recipeName: { fontWeight: '700' },
+  nameBesideFavorite: { marginRight: 48 + spacing.sm },
 });
