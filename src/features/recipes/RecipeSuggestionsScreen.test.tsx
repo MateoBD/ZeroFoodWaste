@@ -264,7 +264,7 @@ describe('RecipeSuggestionsScreen', () => {
       strIngredient1: 'Eggs', strInstructions: 'Cook',
     }] }) } as Response);
     const screen = await render(
-      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+      <PantryProvider><RecommendationProvider><FavoriteRecipesProvider><RecipeSuggestionsScreen /></FavoriteRecipesProvider></RecommendationProvider></PantryProvider>,
     );
 
     expect(await screen.findByText('No recipes for this meal time. Try another one.')).toBeTruthy();
