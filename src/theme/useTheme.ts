@@ -1,13 +1,18 @@
 import { useColorScheme } from 'react-native';
 
+import { useAppSettings } from '@/settings/AppSettingsContext';
+
 import { colors } from './tokens';
 
 /**
- * Selects the semantic palette for the current system color scheme.
+ * Selects the semantic palette from the saved choice or system color scheme.
  *
- * @returns The active light or dark color palette.
+ * An explicit light or dark choice overrides the device scheme; System follows it.
+ * @returns The active semantic palette and whether the app is dark.
  */
 export function useTheme() {
-  const scheme = useColorScheme();
-  return { colors: scheme === 'dark' ? colors.dark : colors.light };
+  const systemScheme = useColorScheme();
+  const { themeMode } = useAppSettings();
+  const isDark = themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
+  return { colors: isDark ? colors.dark : colors.light, isDark };
 }

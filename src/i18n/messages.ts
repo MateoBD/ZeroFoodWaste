@@ -3,6 +3,15 @@
  */
 export const en = {
   appTitle: 'ZeroFoodWaste',
+  settingsTitle: 'Settings',
+  appearanceLabel: 'Appearance',
+  systemAppearance: 'System',
+  lightAppearance: 'Light',
+  darkAppearance: 'Dark',
+  languageLabel: 'Language',
+  automaticLanguage: 'Automatic',
+  englishLanguage: 'English',
+  spanishLanguage: 'Spanish',
   pantryTab: 'Pantry',
   recipesTab: 'Recipes',
   pantryTitle: 'Your pantry',
@@ -104,6 +113,15 @@ export type Messages = Record<MessageKey, string>;
  */
 export const es: Messages = {
   appTitle: 'ZeroFoodWaste',
+  settingsTitle: 'Ajustes',
+  appearanceLabel: 'Apariencia',
+  systemAppearance: 'Sistema',
+  lightAppearance: 'Claro',
+  darkAppearance: 'Oscuro',
+  languageLabel: 'Idioma',
+  automaticLanguage: 'Automático',
+  englishLanguage: 'Inglés',
+  spanishLanguage: 'Español',
   pantryTab: 'Despensa',
   recipesTab: 'Recetas',
   pantryTitle: 'Tu despensa',
