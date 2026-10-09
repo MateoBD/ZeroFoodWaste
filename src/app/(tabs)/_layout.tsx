@@ -1,7 +1,7 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 
-import { useMessages } from '@/i18n/useMessages';
-import { useTheme } from '@/theme/useTheme';
+import { useMessages } from "@/i18n/useMessages";
+import { useTheme } from "@/theme/useTheme";
 
 /**
  * Configures themed, localized native navigation for pantry, recipes,
@@ -20,12 +20,25 @@ export default function TabLayout() {
       tintColor={colors.accent}
     >
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Icon md="inventory_2" sf={{ default: 'list.bullet', selected: 'list.bullet.circle.fill' }} />
-        <NativeTabs.Trigger.Label>{t('pantryTab')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          md="inventory_2"
+          sf={{ default: "list.bullet", selected: "list.bullet.circle.fill" }}
+        />
+        <NativeTabs.Trigger.Label>{t("pantryTab")}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="recipes">
-        <NativeTabs.Trigger.Icon md="restaurant" sf={{ default: 'fork.knife', selected: 'fork.knife.circle.fill' }} />
-        <NativeTabs.Trigger.Label>{t('recipesTab')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          md="restaurant"
+          sf={{ default: "fork.knife", selected: "fork.knife.circle.fill" }}
+        />
+        <NativeTabs.Trigger.Label>{t("recipesTab")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="dashboard">
+        <NativeTabs.Trigger.Icon
+          md="bar_chart"
+          sf={{ default: "chart.bar", selected: "chart.bar.fill" }}
+        />
+        <NativeTabs.Trigger.Label>{t("dashboardTab")}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="favorites">
         <NativeTabs.Trigger.Icon md="favorite" sf={{ default: 'heart', selected: 'heart.fill' }} />

@@ -6,6 +6,7 @@ import { StyleSheet, TextInput } from 'react-native';
 
 import { PantryScreen } from './PantryScreen';
 import { calendarDateToLocalDate, localDateToCalendarDate } from './calendarDate';
+import { PANTRY_EVENT_STORAGE_KEY } from './pantryEventRepository';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
 import { colors } from '@/theme/tokens';
 
@@ -857,5 +858,28 @@ describe('PantryScreen', () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toEqual(original);
     });
     expect(screen.getByRole('button', { name: /^Milk, Expires:/ })).toBeTruthy();
+  });
+
+  it('records thrown-away food and removes the event when undone', async () => {
+    const screen = await renderLoadedPantry();
+    await addFood(screen, 'Yogurt', '2999-10-10');
+
+    await openDetails(screen, 'Yogurt');
+    await fireEvent.press(screen.getByRole('button', { name: 'Mark thrown away' }));
+
+    expect(screen.getByText('Food marked thrown away')).toBeTruthy();
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY);
+      expect(JSON.parse(raw!).events).toEqual([
+        expect.objectContaining({ itemName: 'Yogurt', outcome: 'wasted' }),
+      ]);
+    });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY);
+      expect(JSON.parse(raw!).events).toEqual([]);
+    });
+    expect(screen.getByRole('button', { name: /^Yogurt, Expires:/ })).toBeTruthy();
   });
 });
