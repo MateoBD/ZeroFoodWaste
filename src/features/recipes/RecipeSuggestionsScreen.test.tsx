@@ -248,6 +248,29 @@ describe('RecipeSuggestionsScreen', () => {
     expect(screen.getByRole('button', { name: 'Milk pudding' })).toBeTruthy();
   });
 
+  it('defaults to the meal time for the local hour and lets the user switch', async () => {
+    jest.spyOn(Date.prototype, 'getHours').mockReturnValue(19);
+    const today = localDateToCalendarDate(new Date());
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify({ version: 2, items: [{
+      id: 'eggs', name: 'Eggs', expirationDate: today,
+      recipeIngredient: null, createdAt: new Date().toISOString(),
+    }] }));
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, status: 200, json: async () => ({ meals: [{
+      idMeal: 'breakfast-meal', strMeal: 'Omelette', strMealThumb: null, strCategory: 'Breakfast',
+      strIngredient1: 'Eggs', strInstructions: 'Cook',
+    }] }) } as Response);
+    const screen = await render(
+      <PantryProvider><RecommendationProvider><RecipeSuggestionsScreen /></RecommendationProvider></PantryProvider>,
+    );
+
+    expect(await screen.findByText('No recipes for this meal time. Try another one.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dinner' }).props.accessibilityState.selected).toBe(true);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Breakfast' }));
+
+    expect(screen.getByRole('button', { name: 'Omelette' })).toBeTruthy();
+  });
+
   it('renders Spanish matched counts and missing ingredient copy', async () => {
     mockUseLocales.mockReturnValue([{ languageCode: 'es' }]);
     const today = localDateToCalendarDate(new Date());
