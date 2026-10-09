@@ -14,21 +14,22 @@ const SNACKBAR_EXIT_DISTANCE = 180;
 type UndoSnackbarProps = {
   message: string;
   isError?: boolean;
+  actionLabel?: string;
   bottom: number;
-  onDismiss: (reason: 'expired' | 'undo') => void;
+  onDismiss: (reason: 'expired' | 'action') => void;
 };
 
 /**
  * Announces one change at the bottom of the screen with a timed Undo action.
  *
  * The parent mounts a new instance for each queued change. The message moves
- * below the screen after its four-second window or after Undo is pressed. A
- * shrinking bar shows how much of the current window remains.
+ * below the screen after its four-second window or after its action is pressed.
+ * A shrinking bar shows how much of the current window remains.
  *
- * @param props - Message, placement, save state, and dismissal callback.
- * @returns A compact animated confirmation with an accessible Undo button.
+ * @param props - Message, placement, optional action label, save state, and dismissal callback.
+ * @returns A compact animated confirmation with one accessible action button.
  */
-export function UndoSnackbar({ message, isError = false, bottom, onDismiss }: UndoSnackbarProps) {
+export function UndoSnackbar({ message, isError = false, actionLabel, bottom, onDismiss }: UndoSnackbarProps) {
   const t = useMessages();
   const { colors } = useTheme();
   const [opacity] = useState(() => new Animated.Value(0));
@@ -39,7 +40,7 @@ export function UndoSnackbar({ message, isError = false, bottom, onDismiss }: Un
   const dismissCallback = useRef(onDismiss);
   useEffect(() => { dismissCallback.current = onDismiss; }, [onDismiss]);
 
-  const dismiss = useCallback((reason: 'expired' | 'undo') => {
+  const dismiss = useCallback((reason: 'expired' | 'action') => {
     if (dismissing.current) return;
     dismissing.current = true;
     Animated.parallel([
@@ -94,10 +95,10 @@ export function UndoSnackbar({ message, isError = false, bottom, onDismiss }: Un
         </AppText>
         <Pressable
           accessibilityRole="button"
-          onPress={() => dismiss('undo')}
+          onPress={() => dismiss('action')}
           style={styles.undoButton}
         >
-          <AppText style={[styles.undoText, { color: colors.accent }]}>{t('undo')}</AppText>
+          <AppText style={[styles.undoText, { color: colors.accent }]}>{actionLabel ?? t('undo')}</AppText>
         </Pressable>
       </View>
       <View accessible={false} style={[styles.timerTrack, { backgroundColor: colors.border }]} testID="undo-snackbar-timer-track">

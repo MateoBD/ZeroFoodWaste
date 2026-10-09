@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
@@ -28,8 +28,7 @@ type ExpirationDatePickerProps = {
 export function ExpirationDatePicker({ onChange, value }: ExpirationDatePickerProps) {
   const [pendingDate, setPendingDate] = useState<Date | null>(null);
   const t = useMessages();
-  const scheme = useColorScheme();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const minimumDate = calendarDateToLocalDate(localDateToCalendarDate(new Date()))!;
   const parsedDate = calendarDateToLocalDate(value);
   const selectedDate = parsedDate && parsedDate >= minimumDate ? parsedDate : minimumDate;
@@ -90,7 +89,7 @@ export function ExpirationDatePicker({ onChange, value }: ExpirationDatePickerPr
             mode="date"
             onValueChange={(_event, date) => setPendingDate(date)}
             testID="expiration-date-picker"
-            themeVariant={scheme === 'dark' ? 'dark' : 'light'}
+            themeVariant={isDark ? 'dark' : 'light'}
             value={pendingDate ?? selectedDate}
           />
           <View style={styles.actions}>

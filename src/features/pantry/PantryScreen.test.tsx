@@ -11,7 +11,10 @@ import { PANTRY_STORAGE_KEY } from './pantryRepository';
 import { colors } from '@/theme/tokens';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), setParams: jest.fn() },
+  useLocalSearchParams: () => ({}),
+}));
 jest.mock('@shopify/flash-list', () => ({
   FlashList: jest.requireActual('react-native').FlatList,
 }));

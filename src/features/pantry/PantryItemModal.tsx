@@ -14,7 +14,10 @@ import { getExpirationUrgency } from './expirationUrgency';
 import type { PantryItem } from './pantryItem';
 
 /** Identifies the content shown in the single pantry item modal. */
-export type PantryModalState = { mode: 'add' } | { mode: 'details' | 'edit'; itemId: string } | null;
+export type PantryModalState =
+  | { mode: 'add'; initialName?: string }
+  | { mode: 'details' | 'edit'; itemId: string }
+  | null;
 
 type PantryItemModalProps = {
   state: PantryModalState;
@@ -115,7 +118,7 @@ export function PantryItemModal({
               <PantryItemForm
                 key={state.mode === 'edit' ? state.itemId : 'add'}
                 initialExpirationDate={item?.expirationDate}
-                initialName={item?.name}
+                initialName={item?.name ?? (state.mode === 'add' ? state.initialName : undefined)}
                 initialRecipeIngredient={item?.recipeIngredient}
                 ingredientCatalog={ingredientCatalog}
                 ingredientCatalogStatus={ingredientCatalogStatus}
