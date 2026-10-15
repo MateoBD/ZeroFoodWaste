@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { theMealDbRecipeProvider } from './api/theMealDbClient';
+import { recipeRequestCache } from './recommendations/sharedCache';
 import type { RecipeDetail } from './recipe';
 
 export type RecipeDetailStatus = 'loading' | 'ready' | 'error';
@@ -30,7 +30,7 @@ export function useRecipeDetail(mealId: string) {
      */
     async function loadRecipe() {
       try {
-        const recipe = await theMealDbRecipeProvider.getById(mealId);
+        const recipe = await recipeRequestCache.detail(mealId);
         if (!isActive) return;
         setState({ mealId, item: recipe, status: 'ready' });
       } catch {

@@ -14,7 +14,10 @@ import { getExpirationUrgency } from './expirationUrgency';
 import type { PantryItem } from './pantryItem';
 
 /** Identifies the content shown in the single pantry item modal. */
-export type PantryModalState = { mode: 'add' } | { mode: 'details' | 'edit'; itemId: string } | null;
+export type PantryModalState =
+  | { mode: 'add'; initialName?: string }
+  | { mode: 'details' | 'edit'; itemId: string }
+  | null;
 
 type PantryItemModalProps = {
   state: PantryModalState;
@@ -24,6 +27,7 @@ type PantryItemModalProps = {
   onClose: () => void;
   onEdit: () => void;
   onConsume: () => void;
+  onWaste: () => void;
   onFindRecipes: (ingredient: IngredientReference) => void;
   onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
 };
@@ -36,7 +40,7 @@ type PantryItemModalProps = {
  */
 export function PantryItemModal({
   state, item, ingredientCatalog, ingredientCatalogStatus,
-  onClose, onEdit, onConsume, onFindRecipes, onSave,
+  onClose, onEdit, onConsume, onWaste, onFindRecipes, onSave,
 }: PantryItemModalProps) {
   const t = useMessages();
   const { colors } = useTheme();
@@ -97,6 +101,13 @@ export function PantryItemModal({
                 >
                   <AppText style={{ color: colors.text }}>{t('markConsumed')}</AppText>
                 </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onWaste}
+                  style={[styles.secondaryButton, styles.action, { borderColor: colors.border }]}
+                >
+                  <AppText style={{ color: colors.errorText }}>{t('markWasted')}</AppText>
+                </Pressable>
               </View>
             </View>
           ) : (
@@ -107,7 +118,7 @@ export function PantryItemModal({
               <PantryItemForm
                 key={state.mode === 'edit' ? state.itemId : 'add'}
                 initialExpirationDate={item?.expirationDate}
-                initialName={item?.name}
+                initialName={item?.name ?? (state.mode === 'add' ? state.initialName : undefined)}
                 initialRecipeIngredient={item?.recipeIngredient}
                 ingredientCatalog={ingredientCatalog}
                 ingredientCatalogStatus={ingredientCatalogStatus}

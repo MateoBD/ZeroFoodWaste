@@ -9,8 +9,12 @@ import { useTheme } from '@/theme/useTheme';
 import { ExpirationBadge } from '@/features/pantry/ExpirationBadge';
 import { usePantry } from '@/features/pantry/PantryContext';
 import type { PantryItem } from '@/features/pantry/pantryItem';
+import { FavoriteButton } from './favorites/FavoriteButton';
+import { normalizeIngredientQuery } from './ingredientMatcher';
 
-import { matchPantryItemsToRecipeIngredient } from './recipeSuggestions';
+import { localDateToCalendarDate } from '@/features/pantry/calendarDate';
+import { matchRecipe } from './recommendations/matching';
+import { preparePantry } from './recommendations/preparation';
 import { useRecipeDetail } from './useRecipeDetail';
 
 type RecipeDetailScreenProps = {
@@ -41,13 +45,19 @@ export function RecipeDetailScreen({ mealId, pantryItems = [] }: RecipeDetailScr
     return <RecipeState message={t('recipeNotFound')} />;
   }
 
+  const [year, month, date] = localDateToCalendarDate(new Date()).split('-').map(Number);
+  const matching = matchRecipe(item, preparePantry(pantryItems, new Date(year, month - 1, date, 12)));
+
   return (
     <ScrollView
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
       style={[styles.screen, { backgroundColor: colors.background }]}
     >
-      <AppText accessibilityRole="header" variant="title">{item.name}</AppText>
+      <View style={styles.titleRow}>
+        <AppText accessibilityRole="header" style={styles.title} variant="title">{item.name}</AppText>
+        <FavoriteButton recipe={item} />
+      </View>
       {item.imageUrl ? (
         <Image
           accessibilityLabel={item.name}
@@ -61,7 +71,7 @@ export function RecipeDetailScreen({ mealId, pantryItems = [] }: RecipeDetailScr
       <Surface style={styles.section}>
         <AppText variant="title">{t('ingredientsTitle')}</AppText>
         {item.ingredients.map((ingredient) => {
-          const matches = matchPantryItemsToRecipeIngredient(ingredient.name, pantryItems);
+          const matches = matching.matches.find((match) => normalizeIngredientQuery(match.ingredient.name) === normalizeIngredientQuery(ingredient.name))?.packages ?? [];
           return (
             <View key={`${ingredient.name}-${ingredient.measure ?? ''}`} style={styles.ingredient}>
               <AppText>
@@ -74,16 +84,17 @@ export function RecipeDetailScreen({ mealId, pantryItems = [] }: RecipeDetailScr
                       key={match.id}
                       style={[styles.pantryMatch, { backgroundColor: colors.surface, borderColor: colors.accent }]}
                     >
-                      <AppText style={{ color: colors.accent, fontWeight: '700' }}>{match.name}</AppText>
+                      <AppText style={{ color: colors.accent, fontWeight: '700' }}>{match.foodName}</AppText>
                       <ExpirationBadge expirationDate={match.expirationDate} />
                     </View>
                   ))}
                 </View>
-              ) : null}
+              ) : <AppText variant="muted">{t('missingIngredients')}</AppText>}
             </View>
           );
         })}
       </Surface>
+      <AppText variant="muted">{matching.missing.length ? t('ingredientPresenceNotice') : t('allIngredientsMatched')}</AppText>
       <Surface style={styles.section}>
         <AppText variant="title">{t('instructionsTitle')}</AppText>
         <AppText>{item.instructions}</AppText>
@@ -127,6 +138,8 @@ function RecipeState({ message, variant = 'body' }: RecipeStateProps) {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: spacing.md, gap: spacing.md },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  title: { flex: 1 },
   image: { width: '100%', height: 240, borderRadius: 12 },
   section: { gap: spacing.sm },
   ingredient: { gap: spacing.xs, paddingVertical: spacing.xs },

@@ -84,6 +84,7 @@ type TheMealDbMealSummary = {
 type TheMealDbMealDetail = TheMealDbMealSummary & {
   strInstructions: string | null;
   strSource: string | null;
+  strCategory?: string | null;
   [key: `strIngredient${number}`]: string | null | undefined;
   [key: `strMeasure${number}`]: string | null | undefined;
 };
@@ -147,6 +148,7 @@ function toRecipeDetail(meal: TheMealDbMealDetail): RecipeDetail {
     ingredients: toRecipeIngredients(meal),
     instructions: meal.strInstructions?.trim() ?? '',
     sourceUrl: toOptionalTrimmedString(meal.strSource),
+    category: toOptionalTrimmedString(meal.strCategory),
   };
 }
 

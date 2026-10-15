@@ -58,6 +58,7 @@ describe('theMealDbRecipeProvider', () => {
           strMealThumb: 'https://example.com/chicken.jpg',
           strInstructions: ' Bake until cooked. ',
           strSource: ' https://example.com/source ',
+          strCategory: 'Chicken',
           strIngredient1: 'Chicken',
           strMeasure1: '3 cups',
           strIngredient2: 'Rice',
@@ -79,6 +80,7 @@ describe('theMealDbRecipeProvider', () => {
       ],
       instructions: 'Bake until cooked.',
       sourceUrl: 'https://example.com/source',
+      category: 'Chicken',
     });
     expect(fetch).toHaveBeenCalledWith(
       'https://www.themealdb.com/api/json/v1/1/lookup.php?i=52772',

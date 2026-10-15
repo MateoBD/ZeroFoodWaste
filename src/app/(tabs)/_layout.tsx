@@ -1,10 +1,11 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 
-import { useMessages } from '@/i18n/useMessages';
-import { useTheme } from '@/theme/useTheme';
+import { useMessages } from "@/i18n/useMessages";
+import { useTheme } from "@/theme/useTheme";
 
 /**
- * Configures the native bottom navigation for pantry and recipe suggestions.
+ * Configures themed, localized native navigation for pantry, recipes,
+ * favorites, and settings.
  *
  * @returns The platform-native tab layout.
  */
@@ -16,15 +17,37 @@ export default function TabLayout() {
     <NativeTabs
       backgroundColor={colors.surface}
       disableTransparentOnScrollEdge
+      iconColor={{ default: colors.mutedText, selected: colors.accent }}
       tintColor={colors.accent}
     >
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Icon md="inventory_2" sf={{ default: 'list.bullet', selected: 'list.bullet.circle.fill' }} />
-        <NativeTabs.Trigger.Label>{t('pantryTab')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          md="inventory_2"
+          sf={{ default: "list.bullet", selected: "list.bullet.circle.fill" }}
+        />
+        <NativeTabs.Trigger.Label>{t("pantryTab")}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="recipes">
-        <NativeTabs.Trigger.Icon md="restaurant" sf={{ default: 'fork.knife', selected: 'fork.knife.circle.fill' }} />
-        <NativeTabs.Trigger.Label>{t('recipesTab')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          md="restaurant"
+          sf={{ default: "fork.knife", selected: "fork.knife.circle.fill" }}
+        />
+        <NativeTabs.Trigger.Label>{t("recipesTab")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="dashboard">
+        <NativeTabs.Trigger.Icon
+          md="bar_chart"
+          sf={{ default: "chart.bar", selected: "chart.bar.fill" }}
+        />
+        <NativeTabs.Trigger.Label>{t("dashboardTab")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="favorites">
+        <NativeTabs.Trigger.Icon md="favorite" sf={{ default: 'heart', selected: 'heart.fill' }} />
+        <NativeTabs.Trigger.Label>{t('favoritesTab')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <NativeTabs.Trigger.Icon md="settings" sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
+        <NativeTabs.Trigger.Label>{t('settingsTitle')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
