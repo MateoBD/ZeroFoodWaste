@@ -12,6 +12,7 @@ import { getExpirationUrgency } from './expirationUrgency';
 type PantryItemRowProps = {
   expirationDate: string;
   name: string;
+  quantity: number;
   id: string;
   onOpen: (id: string) => void;
 };
@@ -23,12 +24,12 @@ type PantryItemRowProps = {
  * @returns A memoized pantry row.
  */
 export const PantryItemRow = memo(function PantryItemRow({
-  expirationDate, name, id, onOpen,
+  expirationDate, name, quantity, id, onOpen,
 }: PantryItemRowProps) {
   const t = useMessages();
   const urgency = getExpirationUrgency(expirationDate);
   const urgencyLabel = urgency ? `, ${t(urgencyMessageKeys[urgency])}` : '';
-  const label = `${name}, ${t('expiresLabel')}: ${expirationDate}${urgencyLabel}`;
+  const label = `${name}, ${t('expiresLabel')}: ${expirationDate}${urgencyLabel}, ${t('quantityLabel')}: ${quantity}`;
 
   return (
     <Pressable accessibilityLabel={label} accessibilityRole="button" onPress={() => onOpen(id)}>
@@ -38,6 +39,7 @@ export const PantryItemRow = memo(function PantryItemRow({
           {urgency ? <ExpirationBadge expirationDate={expirationDate} /> : null}
         </View>
         <AppText variant="muted">{`${t('expiresLabel')}: ${expirationDate}`}</AppText>
+        <AppText variant="muted">{`${t('quantityLabel')}: ${quantity}`}</AppText>
       </Surface>
     </Pressable>
   );

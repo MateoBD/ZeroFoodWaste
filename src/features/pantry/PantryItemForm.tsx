@@ -14,10 +14,12 @@ import type { IngredientCatalogStatus } from '@/features/recipes/useIngredientCa
 import { matchScannedRecipeIngredient } from '@/features/barcode/recipeIngredientMatch';
 import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate';
 import { ExpirationDatePicker } from './ExpirationDatePicker';
+import { isValidPantryQuantity } from './pantryItem';
 
 type PantryItemFormProps = {
   initialName?: string;
   initialExpirationDate?: string;
+  initialQuantity?: number;
   initialRecipeIngredient?: IngredientReference | null;
   initialRecipeIngredientCandidates?: readonly string[];
   ingredientCatalog: readonly IngredientCatalogEntry[];
@@ -30,13 +32,13 @@ type PantryItemFormProps = {
   onRecipeFocus?: () => void;
   onRecipeBlur?: () => void;
   onCancel: () => void;
-  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
+  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) => void;
 };
 
 /**
- * Collects a food name and package date with optional ingredient autocomplete.
+ * Collects a food name, whole-unit quantity, and package date with optional ingredient autocomplete.
  *
- * The form validates a non-empty name and a valid local YYYY-MM-DD date that
+ * The form validates a non-empty name, positive safe integer quantity, and a valid local YYYY-MM-DD date that
  * is today or later before calling the save callback. An unchanged expired
  * date remains valid while editing an existing item.
  *
@@ -46,6 +48,7 @@ type PantryItemFormProps = {
 export function PantryItemForm({
   initialName = '',
   initialExpirationDate = '',
+  initialQuantity = 1,
   initialRecipeIngredient = null,
   initialRecipeIngredientCandidates,
   ingredientCatalog,
@@ -66,11 +69,14 @@ export function PantryItemForm({
   const [recipeTouched, setRecipeTouched] = useState(false);
   const [isRecipeActive, setIsRecipeActive] = useState(false);
   const [expirationDateDraft, setExpirationDateDraft] = useState(initialExpirationDate);
+  const [quantityDraft, setQuantityDraft] = useState(String(initialQuantity));
+  const [hasQuantityError, setHasQuantityError] = useState(false);
   const [hasNameError, setHasNameError] = useState(false);
   const [expirationError, setExpirationError] = useState<'required' | 'invalid' | 'past' | null>(
     null,
   );
   const expirationInputRef = useRef<{ focus: () => void } | null>(null);
+  const quantityInputRef = useRef<{ focus: () => void } | null>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectingSuggestion = useRef(false);
   const t = useMessages();
@@ -84,6 +90,9 @@ export function PantryItemForm({
   );
   const effectiveIngredient = recipeTouched ? selectedIngredient : selectedIngredient ?? scanSuggestion;
   const displayedRecipeQuery = recipeTouched ? recipeQuery : effectiveIngredient?.name ?? recipeQuery;
+  const numericQuantity = Number(quantityDraft.trim());
+  const canDecreaseQuantity = /^\d+$/.test(quantityDraft.trim()) && isValidPantryQuantity(numericQuantity) && numericQuantity > 1;
+  const canIncreaseQuantity = /^\d+$/.test(quantityDraft.trim()) && isValidPantryQuantity(numericQuantity) && numericQuantity < Number.MAX_SAFE_INTEGER;
   const recipeSuggestions = useMemo(
     () => isRecipeActive && recipeQuery.trim().length >= 2
       ? matchIngredients(recipeQuery, ingredientCatalog) : [],
@@ -108,10 +117,24 @@ export function PantryItemForm({
     }
   }
 
+  function stepQuantity(delta: 1 | -1) {
+    if (delta < 0 && !canDecreaseQuantity) return;
+    if (delta > 0 && !canIncreaseQuantity) return;
+    setQuantityDraft(String(numericQuantity + delta));
+    setHasQuantityError(false);
+  }
+
   function handleSubmit() {
     const trimmedName = nameDraft.trim();
     const trimmedExpiration = expirationDateDraft.trim();
+    const trimmedQuantity = quantityDraft.trim();
+    const quantity = Number(trimmedQuantity);
     let isFormValid = true;
+
+    if (!/^\d+$/.test(trimmedQuantity) || !isValidPantryQuantity(quantity)) {
+      setHasQuantityError(true);
+      isFormValid = false;
+    }
 
     if (!trimmedName) {
       setHasNameError(true);
@@ -136,9 +159,11 @@ export function PantryItemForm({
 
     setNameDraft('');
     setExpirationDateDraft('');
+    setQuantityDraft('1');
     setHasNameError(false);
+    setHasQuantityError(false);
     setExpirationError(null);
-    onSave(trimmedName, trimmedExpiration, effectiveIngredient);
+    onSave(trimmedName, trimmedExpiration, effectiveIngredient, quantity);
   }
 
   return (
@@ -151,7 +176,7 @@ export function PantryItemForm({
         autoCapitalize="sentences"
         onChangeText={handleNameChange}
         onFocus={onBeginManualEntry}
-        onSubmitEditing={() => expirationInputRef.current?.focus()}
+        onSubmitEditing={() => quantityInputRef.current?.focus()}
         placeholder={t('foodNamePlaceholder')}
         placeholderTextColor={colors.mutedText}
         returnKeyType="next"
@@ -169,6 +194,51 @@ export function PantryItemForm({
       {hasNameError ? (
         <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
           {t('foodNameRequired')}
+        </AppText>
+      ) : null}
+      <AppText nativeID="food-quantity-label">{t('quantityLabel')}</AppText>
+      <View style={styles.quantityRow}>
+        <Pressable
+          accessibilityLabel={t('decreaseQuantity')}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canDecreaseQuantity }}
+          disabled={!canDecreaseQuantity}
+          onPress={() => stepQuantity(-1)}
+          style={[styles.quantityButton, { borderColor: colors.border }]}
+        >
+          <AppText style={{ color: canDecreaseQuantity ? colors.text : colors.mutedText }}>−</AppText>
+        </Pressable>
+        <Input
+          accessibilityLabel={t('quantityLabel')}
+          accessibilityLabelledBy="food-quantity-label"
+          aria-invalid={hasQuantityError}
+          keyboardType="number-pad"
+          onChangeText={(value) => { setQuantityDraft(value); setHasQuantityError(false); }}
+          onFocus={onBeginManualEntry}
+          onSubmitEditing={() => expirationInputRef.current?.focus()}
+          ref={(input) => { quantityInputRef.current = input ?? null; }}
+          returnKeyType="next"
+          style={[styles.input, styles.quantityInput, {
+            backgroundColor: colors.surface,
+            borderColor: hasQuantityError ? colors.errorText : colors.border,
+            color: colors.text,
+          }]}
+          value={quantityDraft}
+        />
+        <Pressable
+          accessibilityLabel={t('increaseQuantity')}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canIncreaseQuantity }}
+          disabled={!canIncreaseQuantity}
+          onPress={() => stepQuantity(1)}
+          style={[styles.quantityButton, { borderColor: colors.border }]}
+        >
+          <AppText style={{ color: canIncreaseQuantity ? colors.text : colors.mutedText }}>+</AppText>
+        </Pressable>
+      </View>
+      {hasQuantityError ? (
+        <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
+          {t('quantityInvalid')}
         </AppText>
       ) : null}
       <View onLayout={onRecipeSectionLayout} style={styles.suggestionGroup} testID="recipe-ingredient-section">
@@ -321,6 +391,9 @@ const styles = StyleSheet.create({
   linkedIngredientRow: { gap: spacing.xs },
   clearIngredient: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
   dateInputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  quantityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  quantityInput: { flex: 1, textAlign: 'center' },
+  quantityButton: { width: 48, height: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   dateInput: { flex: 1 },
   input: {
     minHeight: 48,

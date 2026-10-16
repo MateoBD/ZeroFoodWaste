@@ -1,6 +1,6 @@
 # ZeroFoodWaste
 
-ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its purpose is to help households use food before it expires and reduce domestic food waste. The pantry lets users add and edit food names and expiration dates, keeps them on the device, and offers a separate editable English TheMealDB ingredient link. A Recipes tab searches all eligible pantry ingredient names and ranks recipes by verified pantry matches and expiration priority.
+ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its purpose is to help households use food before it expires and reduce domestic food waste. The pantry lets users add and edit food names, whole-unit quantities, and expiration dates, keeps them on the device, and offers a separate editable English TheMealDB ingredient link. A Recipes tab searches all eligible pantry ingredient names and ranks recipes by verified pantry matches and expiration priority.
 
 ## Get started
 
@@ -40,17 +40,27 @@ Verified recipe details and searched ingredient names are stored in AsyncStorage
 
 Recommendation code lives in `src/features/recipes/recommendations/`: `policy` defines windows; `preparation` validates and indexes packages; `matching` verifies full ingredients; `scoring` and `ranking` order explained results; `engine` composes pure rules; `loader`, storage, and the shared provider handle reusable provider data. Change a rule in its owning module, keeping the provider boundary and screens independent of domain logic.
 
-The native bottom bar switches between Pantry and Recipes. Each pantry row is one button. It opens a details modal showing the food name, package expiration date, urgency, and recipe ingredient link status. Find recipes opens matching results for that linked ingredient, including foods outside the automatic suggestion window. Edit food opens the form in the same modal; saving returns to the pantry. Mark consumed removes the item from the active pantry and from shared recipe suggestions. There is no consumption history yet.
+The native bottom bar switches between Pantry and Recipes. Each pantry row is one button. It shows a whole-unit quantity and opens a details modal with `+` and `−` controls, the package expiration date, urgency, and recipe ingredient link status. Find recipes opens matching results for that linked ingredient, including foods outside the automatic suggestion window. Edit food opens the form in the same modal; saving returns to the pantry. The add and edit forms require a positive whole-unit quantity, defaulting to 1 on add, with `+` and `−` controls beside the editable field. The form's `−` stops at 1. In details, `−` at the last unit asks whether to cancel, remove the entry without history, or mark it consumed. Partial reductions update the count without recording an outcome. Removal supports Undo. Consumed and wasted outcomes are recorded in the dashboard; its metrics count entries, not units.
+
+### Quantity story [4]
+
+| Acceptance criterion | Implemented behavior |
+| --- | --- |
+| View the remaining quantity in the pantry list | Every row displays its stored whole-unit count and includes it in the accessible label. |
+| Increment or decrement directly in the UI | Details has `+` and `−`; the add and edit forms have the same controls beside an editable count. Changes to saved entries persist and offer Undo. |
+| Choose what happens when quantity reaches zero | Pressing `−` on a saved entry with one unit asks whether to cancel, remove it without history, or mark it consumed. Active entries never store zero units. |
 
 The food name is a plain editable field. The separate recipe ingredient field searches the English catalogue and can be changed or cleared without changing the package name. The scan sheet opens to a taller upper position with a slower transition and hides the camera Close button while expanded. Focusing a field expands the sheet; the recipe field scrolls into view, and the sheet content remains scrollable above the keyboard so every suggestion can be reached. A saved manual food without a recipe ingredient remains valid and shows a small hint in details and edit. An unchanged expired package date can be kept during an edit.
 
-Edits and consumption show a bottom confirmation with Undo for four seconds. A thin bar beneath the message empties from right to left into the rounded edge to show the time remaining; then the message slides down. Rapid actions queue so each has its own Undo window and a fresh timer bar. Undo restores the prior fields, identity, and list position while retaining later changes. Additions do not currently offer Undo. Use this reusable bottom confirmation pattern for future update and delete actions. If a device write fails, the confirmation changes to a short failure message and the persistent storage warning remains visible.
+Edits, quantity changes, removal, and consumption show a bottom confirmation with Undo for four seconds. A thin bar beneath the message empties from right to left into the rounded edge to show the time remaining; then the message slides down. Rapid actions queue so each has its own Undo window and a fresh timer bar. Undo restores the prior fields, identity, and list position while retaining later changes. Additions do not currently offer Undo. If a device write fails, the confirmation changes to a short failure message and the persistent storage warning remains visible.
 
 ## Code documentation
 
 Use review-focused JSDoc (`/** ... */`) on production exports, including functions, components, hooks, types, interfaces, and provider objects. Start with a plain-language summary, use a separate paragraph for behavior or edge cases, then document every parameter and return value with `@param` and `@returns`. Add `@throws` only when the declaration can throw or reject, and name the relevant error cases. Document private helpers when their behavior or edge cases need explanation. Describe current behavior; keep planned APIs clearly identified as future work. Avoid repetitive comments on test helpers, inline callbacks, and trivial handlers.
 
 Device-local storage is the agreed choice for this early pantry. A missing storage key starts with an empty pantry. If the saved JSON, format version, or an item is invalid, the app shows a load error and offers retry. It keeps the original stored value and blocks additions until loading succeeds, so damaged data is not silently replaced. A failed save leaves a visible warning; a later successful save clears it.
+
+Pantry storage version 3 adds positive whole-unit quantities. Versions 1 and 2 load with quantity 1; version 3 retains each quantity and rejects invalid values. Outcome-history version 3 stores quantities in restorable item snapshots. Older version 2 snapshots load with quantity 1, so restoring them remains safe.
 
 ## Checks
 

@@ -15,7 +15,7 @@ import type { PantryItem } from './pantryItem';
 
 /** Identifies the content shown in the single pantry item modal. */
 export type PantryModalState =
-  | { mode: 'details' | 'edit'; itemId: string }
+  | { mode: 'details' | 'edit' | 'confirm-zero'; itemId: string }
   | null;
 
 type PantryItemModalProps = {
@@ -26,9 +26,12 @@ type PantryItemModalProps = {
   onClose: () => void;
   onEdit: () => void;
   onConsume: () => void;
+  onDelete: () => void;
+  onCancelZero: () => void;
+  onQuantityChange: (delta: 1 | -1) => void;
   onWaste: () => void;
   onFindRecipes: (ingredient: IngredientReference) => void;
-  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null) => void;
+  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) => void;
 };
 
 /**
@@ -39,7 +42,7 @@ type PantryItemModalProps = {
  */
 export function PantryItemModal({
   state, item, ingredientCatalog, ingredientCatalogStatus,
-  onClose, onEdit, onConsume, onWaste, onFindRecipes, onSave,
+  onClose, onEdit, onConsume, onDelete, onCancelZero, onQuantityChange, onWaste, onFindRecipes, onSave,
 }: PantryItemModalProps) {
   const t = useMessages();
   const { colors } = useTheme();
@@ -64,7 +67,18 @@ export function PantryItemModal({
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
         >
-          {isDetails && item ? (
+          {state.mode === 'confirm-zero' ? (
+            <View style={styles.details}>
+              <AppText accessibilityRole="header" variant="title">{t('quantityZeroQuestion')}</AppText>
+              <AppText>{item.name}</AppText>
+              <Button onPress={onCancelZero}><ButtonText>{t('cancel')}</ButtonText></Button>
+              <Button onPress={onConsume}><ButtonText>{t('markConsumed')}</ButtonText></Button>
+              <Pressable accessibilityRole="button" onPress={onDelete}
+                style={[styles.secondaryButton, { borderColor: colors.border }]}>
+                <AppText style={{ color: colors.errorText }}>{t('removeFood')}</AppText>
+              </Pressable>
+            </View>
+          ) : isDetails ? (
             <View style={styles.details}>
               <View style={styles.heading}>
                 <AppText accessibilityRole="header" style={styles.detailTitle} variant="title">{item.name}</AppText>
@@ -73,6 +87,17 @@ export function PantryItemModal({
                 </Pressable>
               </View>
               <AppText>{`${t('expiresLabel')}: ${item.expirationDate}`}</AppText>
+              <View style={styles.quantityControls}>
+                <Pressable accessibilityLabel={t('decreaseQuantity')} accessibilityRole="button"
+                  onPress={() => onQuantityChange(-1)} style={[styles.quantityButton, { borderColor: colors.border }]}>
+                  <AppText>−</AppText>
+                </Pressable>
+                <AppText>{`${t('quantityLabel')}: ${item.quantity}`}</AppText>
+                <Pressable accessibilityLabel={t('increaseQuantity')} accessibilityRole="button"
+                  onPress={() => onQuantityChange(1)} style={[styles.quantityButton, { borderColor: colors.border }]}>
+                  <AppText>+</AppText>
+                </Pressable>
+              </View>
               {urgency ? <ExpirationBadge expirationDate={item.expirationDate} /> : null}
               {item.recipeIngredient ? (
                 <View style={styles.recipeSection}>
@@ -118,6 +143,7 @@ export function PantryItemModal({
                 key={state.itemId}
                 initialExpirationDate={item?.expirationDate}
                 initialName={item.name}
+                initialQuantity={item.quantity}
                 initialRecipeIngredient={item?.recipeIngredient}
                 ingredientCatalog={ingredientCatalog}
                 ingredientCatalogStatus={ingredientCatalogStatus}
@@ -141,6 +167,8 @@ const styles = StyleSheet.create({
   detailTitle: { flex: 1 },
   closeButton: { minHeight: 48, minWidth: 48, justifyContent: 'center', alignItems: 'center' },
   recipeSection: { gap: spacing.sm },
+  quantityControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
+  quantityButton: { width: 48, height: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
   action: { width: '100%' },
   secondaryButton: {

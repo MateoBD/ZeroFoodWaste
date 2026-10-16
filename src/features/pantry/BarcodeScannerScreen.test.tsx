@@ -97,10 +97,15 @@ describe('BarcodeScannerScreen', () => {
     expect(mockSheetIndex).toBe(1);
     expect(screen.getByLabelText('Food name').props.value).toBe('Mjölk');
     expect(screen.getByLabelText('Choose a recipe ingredient').props.value).toBe('Milk');
+    expect(screen.getByLabelText('Quantity (units)').props.value).toBe('1');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '4');
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase quantity' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     expect(mockAddItem).toHaveBeenCalledWith({
       name: 'Mjölk', expirationDate: '2999-10-15',
+      quantity: 4,
       recipeIngredient: { provider: 'themealdb', id: '2', name: 'Milk' },
     });
     expect(mockRouterBack).toHaveBeenCalled();
@@ -119,7 +124,7 @@ describe('BarcodeScannerScreen', () => {
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     expect(mockAddItem).toHaveBeenCalledWith({
-      name: 'Mellanmjölk', expirationDate: '2999-10-15', recipeIngredient: null,
+      name: 'Mellanmjölk', expirationDate: '2999-10-15', recipeIngredient: null, quantity: 1,
     });
   });
 
@@ -142,6 +147,7 @@ describe('BarcodeScannerScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     expect(mockAddItem).toHaveBeenCalledWith({
       name: 'Ready meal', expirationDate: '2999-10-15',
+      quantity: 1,
       recipeIngredient: { provider: 'themealdb', id: '3', name: 'Chicken' },
     });
   });
