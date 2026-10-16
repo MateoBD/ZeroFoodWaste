@@ -28,6 +28,7 @@ function isIngredientReference(value: unknown): boolean {
 /**
  * Validates the complete pantry-item snapshot stored inside a restorable event,
  * including its identity, package date, optional recipe reference, and timestamp.
+ * Version 3 also requires a positive whole-unit quantity.
  *
  * @param value - The unknown snapshot value read from persisted event storage.
  * @param hasQuantity - Whether its version requires quantity.
@@ -102,7 +103,8 @@ function isPantryEvent(value: unknown, version: number): value is PantryEvent {
  *
  * @param raw - Stored JSON, or null when no events have been saved.
  * @return {PantryEvent[]} Valid pantry events in their stored order. Version 1 events remain
- * readable but do not contain enough data to restore the original item.
+ * readable but do not contain enough data to restore the original item. Version 2
+ * snapshots receive one unit when loaded.
  * @throws Error when the stored document is malformed or unsupported.
  */
 export function parseStoredPantryEvents(raw: string | null): PantryEvent[] {

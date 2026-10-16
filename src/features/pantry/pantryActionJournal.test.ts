@@ -48,4 +48,13 @@ describe('pantry action journal', () => {
       actions: [actions[2]],
     });
   });
+
+  it('removes an entry without an outcome while preserving later edits on Undo', () => {
+    const actions: PantryAction[] = [
+      { id: 'a', kind: 'delete', itemId: 'bread', undoable: true },
+      { id: 'b', kind: 'edit', itemId: 'milk', changes: { quantity: 3 }, undoable: true },
+    ];
+    expect(replayPantryActions([bread, milk], actions)).toEqual([{ ...milk, quantity: 3 }]);
+    expect(replayPantryActions([bread, milk], actions.slice(1))).toEqual([bread, { ...milk, quantity: 3 }]);
+  });
 });

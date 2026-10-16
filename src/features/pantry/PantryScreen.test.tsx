@@ -282,8 +282,8 @@ describe('PantryScreen', () => {
 
     expect(screen.getByTestId('expiration-badge-fresh')).toBeTruthy();
     expect(screen.getByText(/days left$/)).toBeTruthy();
-    expect(screen.getByLabelText('Rice, Expires: 2999-10-15, Fresh')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Rice, Expires: 2999-10-15, Fresh' })).toBeTruthy();
+    expect(screen.getByLabelText('Rice, Expires: 2999-10-15, Fresh, Quantity (units): 1')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rice, Expires: 2999-10-15, Fresh, Quantity (units): 1' })).toBeTruthy();
   });
 
   it('lists food with the closest expiration date first, including newly added food', async () => {
@@ -909,5 +909,79 @@ describe('PantryScreen', () => {
       expect(JSON.parse(raw!).events).toEqual([]);
     });
     expect(screen.getByRole('button', { name: /^Yogurt, Expires:/ })).toBeTruthy();
+  });
+
+  it('adds and edits a positive quantity from the shared form', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    expect(screen.getByRole('button', { name: 'Decrease quantity' }).props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '0');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('alert', { name: 'Enter a whole number of at least 1.' })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '3');
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase quantity' }));
+    expect(screen.getByLabelText('Quantity (units)').props.value).toBe('4');
+    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
+    expect(screen.getByLabelText('Quantity (units)').props.value).toBe('3');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 3/ })).toBeTruthy();
+    await openEdit(screen, 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '5');
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase quantity' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+      expect(JSON.parse(raw!).items[0].quantity).toBe(5);
+    });
+  });
+
+  it('changes quantity by one and preserves later actions when an earlier change is undone', async () => {
+    const screen = await renderLoadedPantry();
+    await addFood(screen, 'Rice', '2999-10-15');
+    await openDetails(screen, 'Rice');
+    jest.useFakeTimers();
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase quantity' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase quantity' }));
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 3/ })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await act(async () => { jest.advanceTimersByTime(200); });
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 3/ })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await act(async () => { jest.advanceTimersByTime(200); });
+    jest.useRealTimers();
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 1/ })).toBeTruthy();
+  });
+
+  it('asks at the last unit, cancels, then removes without history and supports Undo', async () => {
+    const screen = await renderLoadedPantry();
+    await addFood(screen, 'Rice', '2999-10-15');
+    await openDetails(screen, 'Rice');
+    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
+    expect(screen.getByRole('header', { name: 'What should happen to the last unit?' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 1/ })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove without history' }));
+    expect(screen.queryByRole('button', { name: /^Rice, Expires:/ })).toBeNull();
+    expect(await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Rice, Expires:/ })).toBeTruthy());
+  });
+
+  it('marks the last unit consumed when selected in the zero prompt', async () => {
+    const screen = await renderLoadedPantry();
+    await addFood(screen, 'Rice', '2999-10-15');
+    await openDetails(screen, 'Rice');
+    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Mark consumed' }));
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY);
+      expect(JSON.parse(raw!).events[0]).toEqual(expect.objectContaining({
+        outcome: 'consumed', itemSnapshot: expect.objectContaining({ quantity: 1 }),
+      }));
+    });
   });
 });

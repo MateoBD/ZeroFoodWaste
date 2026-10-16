@@ -134,8 +134,8 @@ export function BarcodeScannerScreen() {
     router.back();
   }
 
-  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
-    addItem({ name, expirationDate, recipeIngredient });
+  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) {
+    addItem({ name, expirationDate, recipeIngredient, quantity });
     closeAddScreen();
   }
 

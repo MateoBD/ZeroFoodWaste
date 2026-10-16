@@ -51,7 +51,7 @@ export function ConnectedPantryScreen() {
 
 function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const {
-    items, status, hasSaveError, failedActionIds, updateItem,
+    items, status, hasSaveError, failedActionIds, updateItem, changeQuantity, deleteItem,
     consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
@@ -90,6 +90,26 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     setModalState(null);
   }
 
+  function handleDelete() {
+    if (!selectedItem) return;
+    const actionId = deleteItem(selectedItem.id);
+    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodRemoved' }]);
+    setModalState(null);
+  }
+
+  function handleCancelZero() {
+    if (selectedItem) setModalState({ mode: 'details', itemId: selectedItem.id });
+  }
+
+  function handleQuantityChange(delta: 1 | -1) {
+    if (!selectedItem) return;
+    const result = changeQuantity(selectedItem.id, delta);
+    if (result?.status === 'at-zero') setModalState({ mode: 'confirm-zero', itemId: selectedItem.id });
+    if (result?.status === 'updated') {
+      setFeedbackQueue((queue) => [...queue, { id: result.actionId, messageKey: 'foodUpdated' }]);
+    }
+  }
+
   function handleFeedbackDismiss(reason: 'expired' | 'action') {
     if (!currentFeedback) return;
     if (reason === 'action') undoAction(currentFeedback.id);
@@ -107,8 +127,8 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
   }, []);
 
-  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
-    const draft = { name, expirationDate, recipeIngredient };
+  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) {
+    const draft = { name, expirationDate, recipeIngredient, quantity };
     if (modalState?.mode === 'edit') {
       const actionId = updateItem(modalState.itemId, draft);
       if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodUpdated' }]);
@@ -121,6 +141,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
       expirationDate={item.expirationDate}
       id={item.id}
       name={item.name}
+      quantity={item.quantity}
       onOpen={handleOpenDetails}
     />
   ), [handleOpenDetails]);
@@ -176,7 +197,10 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         ingredientCatalogStatus={ingredientCatalog.status}
         onClose={handleCloseModal}
         onConsume={handleConsume}
+        onCancelZero={handleCancelZero}
+        onDelete={handleDelete}
         onEdit={handleEdit}
+        onQuantityChange={handleQuantityChange}
         onFindRecipes={handleFindRecipes}
         onSave={handleSave}
         onWaste={handleWaste}
