@@ -1,7 +1,7 @@
 import { isValidCalendarDate } from './calendarDate';
 import type { PantryItem } from './pantryItem';
 
-type StoredPantry = { version: 2; items: PantryItem[] };
+type StoredPantry = { version: 3; items: PantryItem[] };
 
 /**
  * Checks whether stored data is a complete TheMealDB ingredient reference.
@@ -28,15 +28,18 @@ function isIngredientReference(value: unknown): boolean {
  * @param hasRecipeIngredient - Whether the storage version includes recipe references.
  * @returns Whether the value is a valid pantry item.
  */
-function isPantryItem(value: unknown, hasRecipeIngredient: boolean): value is PantryItem {
+function isPantryItem(value: unknown, version: number): value is PantryItem {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
 
+  const hasRecipeIngredient = version >= 2;
+  const hasQuantity = version >= 3;
   const item = value as Record<string, unknown>;
   return (
     typeof item.id === 'string' && item.id.trim().length > 0 &&
     typeof item.name === 'string' && item.name.trim().length > 0 &&
     (!hasRecipeIngredient || item.recipeIngredient === null || isIngredientReference(item.recipeIngredient)) &&
     typeof item.expirationDate === 'string' && isValidCalendarDate(item.expirationDate) &&
+    (!hasQuantity || (typeof item.quantity === 'number' && Number.isInteger(item.quantity) && item.quantity >= 0)) &&
     typeof item.createdAt === 'string' &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item.createdAt) &&
     isCanonicalTimestamp(item.createdAt)
@@ -78,21 +81,24 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
   }
 
   const stored = data as Record<string, unknown>;
-  if ((stored.version !== 1 && stored.version !== 2) || !Array.isArray(stored.items)) {
+  const version = stored.version;
+  if ((version !== 1 && version !== 2 && version !== 3) || !Array.isArray(stored.items)) {
     throw new Error('Pantry storage has an unsupported format');
   }
 
   const ids = new Set<string>();
   for (const item of stored.items) {
-    if (!isPantryItem(item, stored.version === 2) || ids.has(item.id)) {
+    if (!isPantryItem(item, version) || ids.has(item.id)) {
       throw new Error('Pantry storage contains an invalid item');
     }
     ids.add(item.id);
   }
 
-  return stored.items.map((item) =>
-    stored.version === 1 ? { ...item, recipeIngredient: null } : item,
-  ) as PantryItem[];
+  return stored.items.map((item) => ({
+    ...item,
+    recipeIngredient: version === 1 ? null : item.recipeIngredient,
+    quantity: version === 3 ? item.quantity : 1,
+  })) as PantryItem[];
 }
 
 /**
@@ -102,6 +108,6 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
  * @returns The versioned pantry document as JSON.
  */
 export function encodeStoredPantry(items: readonly PantryItem[]): string {
-  const data: StoredPantry = { version: 2, items: [...items] };
+  const data: StoredPantry = { version: 3, items: [...items] };
   return JSON.stringify(data);
 }

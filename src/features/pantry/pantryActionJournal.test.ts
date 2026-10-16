@@ -3,11 +3,11 @@ import type { PantryItem } from './pantryItem';
 
 const bread: PantryItem = {
   id: 'bread', name: 'Bread', expirationDate: '2999-10-10',
-  recipeIngredient: null, createdAt: '2026-09-01T10:00:00.000Z',
+  recipeIngredient: null, createdAt: '2026-09-01T10:00:00.000Z', quantity: 1,
 };
 const milk: PantryItem = {
   id: 'milk', name: 'Milk', expirationDate: '2999-10-11',
-  recipeIngredient: null, createdAt: '2026-09-01T10:00:00.000Z',
+  recipeIngredient: null, createdAt: '2026-09-01T10:00:00.000Z', quantity: 1,
 };
 
 describe('pantry action journal', () => {

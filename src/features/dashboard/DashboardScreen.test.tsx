@@ -140,7 +140,7 @@ describe("DashboardScreen", () => {
     });
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY)) ?? "null")).toEqual({
-        version: 2,
+        version: 3,
         items: [milk],
       });
     });

@@ -9,6 +9,7 @@ const bread = {
   recipeIngredient: null,
   expirationDate: '2026-10-15',
   createdAt: '2026-09-01T10:00:00.000Z',
+  quantity: 1,
 };
 
 const legacyBread = {
@@ -16,6 +17,7 @@ const legacyBread = {
   name: 'Bread',
   expirationDate: '2026-10-15',
   createdAt: '2026-09-01T10:00:00.000Z',
+  quantity: 1,
 };
 
 describe('parseStoredPantry', () => {
@@ -46,7 +48,7 @@ describe('parseStoredPantry', () => {
     };
 
     expect(JSON.parse(encodeStoredPantry([bread, linkedBread]))).toEqual({
-      version: 2,
+      version: 3,
       items: [bread, linkedBread],
     });
   });
@@ -54,7 +56,7 @@ describe('parseStoredPantry', () => {
   it('rejects unreadable and unknown data', () => {
     expect(() => parseStoredPantry('not json')).toThrow();
     expect(() => parseStoredPantry(JSON.stringify([bread]))).toThrow();
-    expect(() => parseStoredPantry(JSON.stringify({ version: 3, items: [bread] }))).toThrow();
+    expect(() => parseStoredPantry(JSON.stringify({ version: 4, items: [bread] }))).toThrow();
   });
 
   it('rejects an entire pantry with a malformed item or impossible calendar date', () => {
@@ -77,6 +79,26 @@ describe('parseStoredPantry', () => {
     }))).toHaveLength(1);
   });
 
+  it('gives items from version 2 a default quantity of 1', () => {
+    const stored = { ...bread, quantity: undefined };
+  
+    expect(parseStoredPantry(JSON.stringify({ version: 2, items: [stored] }))).toEqual([
+      { ...bread, quantity: 1 },
+    ]);
+  });
+  
+  it('keeps the stored quantity in version 3', () => {
+    const stored = { ...bread, quantity: 3 };
+  
+    expect(parseStoredPantry(JSON.stringify({ version: 3, items: [stored] }))).toEqual([stored]);
+  });
+  
+  it.each([-1, 1.5, '2'])('rejects an invalid quantity (%s) in version 3', (quantity) => {
+    expect(() =>
+      parseStoredPantry(JSON.stringify({ version: 3, items: [{ ...bread, quantity }] })),
+    ).toThrow();
+  });
+  
   it.each([
     ['missing reference', undefined],
     ['non-object reference', 'Chicken'],
@@ -116,7 +138,7 @@ describe('asyncStoragePantryRepository', () => {
 
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       PANTRY_STORAGE_KEY,
-      JSON.stringify({ version: 2, items: [bread] }),
+      JSON.stringify({ version: 3, items: [bread] }),
     );
   });
 });

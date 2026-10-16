@@ -10,6 +10,7 @@ export type PantryItem = Readonly<{
   name: string;
   recipeIngredient: IngredientReference | null;
   expirationDate: string;
+  quantity: number;
   createdAt: string;
 }>;
 
@@ -20,6 +21,7 @@ export type PantryItem = Readonly<{
  * @param expirationDate - The package expiration date in YYYY-MM-DD format.
  * @param recipeIngredient - The selected recipe ingredient, or null for manual food.
  * @param now - The time used for the ID and creation timestamp. Defaults to now.
+ * @param quantity - How many units of the food the user has. Defaults to 1.
  * @returns A new pantry item.
  * @throws RangeError when `now` is not a valid Date.
  */
@@ -28,6 +30,7 @@ export function createPantryItem(
   expirationDate: string,
   recipeIngredient: IngredientReference | null = null,
   now: Date = new Date(),
+  quantity = 1,
 ): PantryItem {
   const randomPart = Math.random().toString(36).slice(2, 10);
 
@@ -36,6 +39,7 @@ export function createPantryItem(
     name,
     recipeIngredient,
     expirationDate,
+    quantity,
     createdAt: now.toISOString(),
   };
 }
