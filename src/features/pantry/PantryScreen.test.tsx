@@ -818,7 +818,7 @@ describe('PantryScreen', () => {
   it('removes an item and remembers the removal after reopening', async () => {
   const screen = await renderLoadedPantry();
 
-  await addFood(screen, 'Bread', '2026-10-10');
+  await addFood(screen, 'Bread', '2999-10-10');
 
   await openDetails(screen, 'Bread');
   await fireEvent.press(screen.getByRole('button', { name: 'Mark consumed' }));

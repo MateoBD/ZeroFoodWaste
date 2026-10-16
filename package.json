@@ -19,6 +19,7 @@
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.10",
     "expo-localization": "~57.0.2",
+    "expo-notifications": "~57.0.22",
     "expo-router": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
@@ -49,6 +50,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "android:native": "expo run:android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
