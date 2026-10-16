@@ -4,11 +4,11 @@ import { useLocales } from 'expo-localization';
 import { router } from 'expo-router';
 import { StyleSheet, TextInput } from 'react-native';
 
+import { colors } from '@/theme/tokens';
 import { PantryScreen } from './PantryScreen';
 import { calendarDateToLocalDate, localDateToCalendarDate } from './calendarDate';
 import { PANTRY_EVENT_STORAGE_KEY } from './pantryEventRepository';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
-import { colors } from '@/theme/tokens';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
 jest.mock('expo-router', () => ({
@@ -818,7 +818,7 @@ describe('PantryScreen', () => {
   it('removes an item and remembers the removal after reopening', async () => {
   const screen = await renderLoadedPantry();
 
-  await addFood(screen, 'Bread', '2026-10-10');
+  await addFood(screen, 'Bread', '2026-12-12');
 
   await openDetails(screen, 'Bread');
   await fireEvent.press(screen.getByRole('button', { name: 'Mark consumed' }));
@@ -841,9 +841,9 @@ describe('PantryScreen', () => {
 
   it('undoes consumption and restores the item at its original position', async () => {
     const screen = await renderLoadedPantry();
-    await addFood(screen, 'Bread', '2999-10-10');
-    await addFood(screen, 'Milk', '2999-10-11');
-    await addFood(screen, 'Rice', '2999-10-12');
+    await addFood(screen, 'Bread', '2026-12-12');
+    await addFood(screen, 'Milk', '2026-12-13');
+    await addFood(screen, 'Rice', '2026-12-14');
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toHaveLength(3);
     });
@@ -862,7 +862,7 @@ describe('PantryScreen', () => {
 
   it('records thrown-away food and removes the event when undone', async () => {
     const screen = await renderLoadedPantry();
-    await addFood(screen, 'Yogurt', '2999-10-10');
+    await addFood(screen, 'Yogurt', '2026-12-12');
 
     await openDetails(screen, 'Yogurt');
     await fireEvent.press(screen.getByRole('button', { name: 'Mark thrown away' }));
