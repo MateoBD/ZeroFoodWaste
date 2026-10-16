@@ -15,7 +15,6 @@ import type { PantryItem } from './pantryItem';
 
 /** Identifies the content shown in the single pantry item modal. */
 export type PantryModalState =
-  | { mode: 'add'; initialName?: string }
   | { mode: 'details' | 'edit'; itemId: string }
   | null;
 
@@ -44,7 +43,7 @@ export function PantryItemModal({
 }: PantryItemModalProps) {
   const t = useMessages();
   const { colors } = useTheme();
-  if (!state || (state.mode !== 'add' && !item)) return null;
+  if (!state || !item) return null;
 
   const isDetails = state.mode === 'details';
   const urgency = item ? getExpirationUrgency(item.expirationDate) : null;
@@ -113,12 +112,12 @@ export function PantryItemModal({
           ) : (
             <>
               <AppText accessibilityRole="header" variant="title">
-                {t(state.mode === 'edit' ? 'editFood' : 'addFood')}
+                {t('editFood')}
               </AppText>
               <PantryItemForm
-                key={state.mode === 'edit' ? state.itemId : 'add'}
+                key={state.itemId}
                 initialExpirationDate={item?.expirationDate}
-                initialName={item?.name ?? (state.mode === 'add' ? state.initialName : undefined)}
+                initialName={item.name}
                 initialRecipeIngredient={item?.recipeIngredient}
                 ingredientCatalog={ingredientCatalog}
                 ingredientCatalogStatus={ingredientCatalogStatus}
