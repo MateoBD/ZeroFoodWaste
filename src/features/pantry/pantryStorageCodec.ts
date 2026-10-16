@@ -1,5 +1,5 @@
 import { isValidCalendarDate } from './calendarDate';
-import type { PantryItem } from './pantryItem';
+import { isValidPantryQuantity, type PantryItem } from './pantryItem';
 
 type StoredPantry = { version: 3; items: PantryItem[] };
 
@@ -25,7 +25,7 @@ function isIngredientReference(value: unknown): boolean {
  * Version 1 records do not contain recipe ingredient references.
  *
  * @param value - The unknown stored item to inspect.
- * @param hasRecipeIngredient - Whether the storage version includes recipe references.
+ * @param version - The storage version containing the item.
  * @returns Whether the value is a valid pantry item.
  */
 function isPantryItem(value: unknown, version: number): value is PantryItem {
@@ -39,7 +39,7 @@ function isPantryItem(value: unknown, version: number): value is PantryItem {
     typeof item.name === 'string' && item.name.trim().length > 0 &&
     (!hasRecipeIngredient || item.recipeIngredient === null || isIngredientReference(item.recipeIngredient)) &&
     typeof item.expirationDate === 'string' && isValidCalendarDate(item.expirationDate) &&
-    (!hasQuantity || (typeof item.quantity === 'number' && Number.isInteger(item.quantity) && item.quantity >= 0)) &&
+    (!hasQuantity || isValidPantryQuantity(item.quantity)) &&
     typeof item.createdAt === 'string' &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item.createdAt) &&
     isCanonicalTimestamp(item.createdAt)
@@ -58,7 +58,7 @@ function isCanonicalTimestamp(value: string): boolean {
 }
 
 /**
- * Reads a v1 or v2 pantry document, adding a null recipe reference to v1 items.
+ * Reads v1 through v3 pantry documents and supplies missing legacy fields.
  *
  * A missing document yields an empty pantry. Invalid data stays on disk for recovery.
  *
@@ -102,7 +102,7 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
 }
 
 /**
- * Serializes pantry items as a version 2 storage document.
+ * Serializes pantry items as a version 3 storage document.
  *
  * @param items - The pantry items to store.
  * @returns The versioned pantry document as JSON.

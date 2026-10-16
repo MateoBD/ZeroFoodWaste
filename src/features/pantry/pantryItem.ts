@@ -15,6 +15,16 @@ export type PantryItem = Readonly<{
 }>;
 
 /**
+ * Checks whether a quantity represents at least one whole pantry unit.
+ *
+ * @param value - The value to validate.
+ * @returns Whether it is a positive safe integer.
+ */
+export function isValidPantryQuantity(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+/**
  * Creates a pantry item with a generated ID and an ISO creation timestamp.
  *
  * @param name - The user-provided food name.
@@ -23,7 +33,7 @@ export type PantryItem = Readonly<{
  * @param now - The time used for the ID and creation timestamp. Defaults to now.
  * @param quantity - How many units of the food the user has. Defaults to 1.
  * @returns A new pantry item.
- * @throws RangeError when `now` is not a valid Date.
+ * @throws RangeError when `now` is invalid or quantity is not a positive safe integer.
  */
 export function createPantryItem(
   name: string,
@@ -32,6 +42,7 @@ export function createPantryItem(
   now: Date = new Date(),
   quantity = 1,
 ): PantryItem {
+  if (!isValidPantryQuantity(quantity)) throw new RangeError('Invalid pantry quantity');
   const randomPart = Math.random().toString(36).slice(2, 10);
 
   return {

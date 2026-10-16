@@ -17,7 +17,6 @@ const legacyBread = {
   name: 'Bread',
   expirationDate: '2026-10-15',
   createdAt: '2026-09-01T10:00:00.000Z',
-  quantity: 1,
 };
 
 describe('parseStoredPantry', () => {
@@ -29,19 +28,19 @@ describe('parseStoredPantry', () => {
     expect(parseStoredPantry(JSON.stringify({ version: 1, items: [legacyBread] }))).toEqual([bread]);
   });
 
-  it('reads linked items from the current storage format', () => {
+  it('migrates linked items from version 2', () => {
     const linkedBread = {
       ...bread,
       recipeIngredient: { provider: 'themealdb', id: '1', name: 'Bread' },
     };
-    expect(parseStoredPantry(JSON.stringify({ version: 2, items: [linkedBread] }))).toEqual([linkedBread]);
+    expect(parseStoredPantry(JSON.stringify({ version: 2, items: [{ ...linkedBread, quantity: undefined }] }))).toEqual([linkedBread]);
   });
 
-  it('reads an explicit null reference from the current storage format', () => {
-    expect(parseStoredPantry(JSON.stringify({ version: 2, items: [bread] }))).toEqual([bread]);
+  it('reads an explicit null reference from version 3', () => {
+    expect(parseStoredPantry(JSON.stringify({ version: 3, items: [bread] }))).toEqual([bread]);
   });
 
-  it('encodes linked and unlinked items with schema version 2', () => {
+  it('encodes linked and unlinked items with schema version 3', () => {
     const linkedBread = {
       ...bread,
       recipeIngredient: { provider: 'themealdb' as const, id: '1', name: 'Bread' },
@@ -81,24 +80,24 @@ describe('parseStoredPantry', () => {
 
   it('gives items from version 2 a default quantity of 1', () => {
     const stored = { ...bread, quantity: undefined };
-  
+
     expect(parseStoredPantry(JSON.stringify({ version: 2, items: [stored] }))).toEqual([
       { ...bread, quantity: 1 },
     ]);
   });
-  
+
   it('keeps the stored quantity in version 3', () => {
     const stored = { ...bread, quantity: 3 };
   
     expect(parseStoredPantry(JSON.stringify({ version: 3, items: [stored] }))).toEqual([stored]);
   });
   
-  it.each([-1, 1.5, '2'])('rejects an invalid quantity (%s) in version 3', (quantity) => {
+  it.each([0, -1, 1.5, '2', null, undefined, Number.MAX_SAFE_INTEGER + 1])('rejects an invalid quantity (%s) in version 3', (quantity) => {
     expect(() =>
       parseStoredPantry(JSON.stringify({ version: 3, items: [{ ...bread, quantity }] })),
     ).toThrow();
   });
-  
+
   it.each([
     ['missing reference', undefined],
     ['non-object reference', 'Chicken'],
@@ -133,7 +132,7 @@ describe('asyncStoragePantryRepository', () => {
     expect(await AsyncStorage.getItem(PANTRY_STORAGE_KEY)).toBe(damaged);
   });
 
-  it('saves schema-v2 pantry data with null references intact', async () => {
+  it('saves schema-v3 pantry data with null references intact', async () => {
     await asyncStoragePantryRepository.saveItems([bread]);
 
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
