@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PantryProvider } from '@/features/pantry/PantryContext';
 import { FavoriteRecipesProvider } from '@/features/recipes/favorites/FavoriteRecipesContext';
@@ -15,11 +17,15 @@ import { useTheme } from '@/theme/useTheme';
  */
 export default function RootLayout() {
   return (
-    <AppSettingsProvider>
-      <RootNavigation />
-    </AppSettingsProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AppSettingsProvider>
+        <RootNavigation />
+      </AppSettingsProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1 } });
 
 /**
  * Renders navigation using the active language, theme, and status-bar contrast.

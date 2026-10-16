@@ -72,7 +72,7 @@ function scoreIngredient(query: string, ingredient: string): number | null {
  *
  * Matching ignores case and accents, and tolerates small spelling mistakes.
  *
- * @param query - The food name typed by the user.
+ * @param query - The recipe ingredient search text typed by the user.
  * @param ingredients - The available TheMealDB ingredient catalogue.
  * @param limit - Maximum number of suggestions to return. Defaults to 5.
  * @returns Matching ingredients, ordered from most to least relevant.
