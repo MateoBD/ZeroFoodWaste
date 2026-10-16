@@ -1,6 +1,6 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +22,13 @@ import type { PantryItem } from './pantryItem';
 import { usePantry, type PantryState } from './PantryContext';
 import { sortPantryItemsByExpiration } from './sortPantryItems';
 import { usePantryItems } from './usePantryItems';
+import {
+  EXPIRATION_NOTIFICATION_TYPE,
+  addExpirationNotificationResponseListener,
+  getLastExpirationNotificationResponse,
+  supportsExpirationNotifications,
+  type ExpirationNotificationResponse,
+} from '@/features/notifications/expirationNotifications';
 
 function keyExtractor(item: PantryItem) {
   return item.id;
@@ -56,6 +63,45 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
+  const [notificationItemId, setNotificationItemId] = useState<string | undefined>(undefined);
+
+  // Wait until pantry data is ready, then open the item referenced by a tapped
+  // expiration notification. The deferred callback avoids updating modal state
+  // during the notification-response effect itself; stale item IDs are ignored.
+  useEffect(() => {
+    if (!supportsExpirationNotifications()) return;
+
+    /**
+     * Extracts a pantry item identifier from a notification response.
+     *
+     * @param response - The native notification response received after a tap.
+     * @returns Nothing; a valid identifier is queued for modal opening.
+     */
+    function handleNotificationResponse(response: ExpirationNotificationResponse) {
+      const data = response.notification.request.content.data;
+      if (data?.type !== EXPIRATION_NOTIFICATION_TYPE || typeof data.itemId !== 'string') return;
+      setNotificationItemId(data.itemId);
+    }
+
+    const subscription = addExpirationNotificationResponseListener(handleNotificationResponse);
+    try {
+      const response = getLastExpirationNotificationResponse();
+      if (response) handleNotificationResponse(response);
+    } catch {
+      // Notification access can be unavailable in unsupported runtimes.
+    }
+    return () => subscription?.remove();
+  }, []);
+
+  useEffect(() => {
+    if (status !== 'ready' || !notificationItemId) return;
+    const itemId = notificationItemId;
+    const timer = setTimeout(() => {
+      if (items.some((item) => item.id === itemId)) setModalState({ mode: 'details', itemId });
+      setNotificationItemId(undefined);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [items, notificationItemId, status]);
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();

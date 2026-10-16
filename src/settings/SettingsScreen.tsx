@@ -7,7 +7,12 @@ import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 import { useAppSettings, type LanguageMode, type ThemeMode } from './AppSettingsContext';
-
+import {
+  MAX_EXPIRATION_ALERT_DAYS,
+  MIN_EXPIRATION_ALERT_DAYS,
+  requestExpirationNotificationPermission,
+  supportsExpirationNotifications,
+} from '@/features/notifications/expirationNotifications';
 /**
  * Defines one selectable value and its localized label.
  *
@@ -121,7 +126,17 @@ function PreferenceSelect<Value extends string>({
 export function SettingsScreen() {
   const t = useMessages();
   const { colors } = useTheme();
-  const { languageMode, ready, setLanguageMode, setThemeMode, themeMode } = useAppSettings();
+  const {
+    expirationAlertDays,
+    expirationAlertsEnabled,
+    languageMode,
+    ready,
+    setExpirationAlertDays,
+    setExpirationAlertsEnabled,
+    setLanguageMode,
+    setThemeMode,
+    themeMode,
+  } = useAppSettings();
 
   const themeOptions: PreferenceOption<ThemeMode>[] = [
     { label: t('systemAppearance'), value: 'system' },
@@ -134,6 +149,21 @@ export function SettingsScreen() {
     { label: t('spanishLanguage'), value: 'es' },
     { label: t('italianLanguage'), value: 'it' },
   ];
+
+  /**
+   * Requests native permission before enabling expiration alerts.
+   *
+   * @returns A promise that resolves after the preference has been updated.
+   */
+  async function handleExpirationAlertsToggle() {
+    if (expirationAlertsEnabled) {
+      setExpirationAlertsEnabled(false);
+      return;
+    }
+    if (!supportsExpirationNotifications()) return;
+    const granted = await requestExpirationNotificationPermission();
+    if (granted) setExpirationAlertsEnabled(true);
+  }
 
   return (
     <View testID="settings-screen" style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -155,6 +185,47 @@ export function SettingsScreen() {
           selected={languageMode}
           testID="language-preference-button"
         />
+        {supportsExpirationNotifications() ? (
+          <View style={styles.group}>
+            <AppText accessibilityRole="header" style={styles.groupLabel}>{t('expirationAlertsLabel')}</AppText>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: expirationAlertsEnabled, disabled: !ready }}
+              disabled={!ready}
+              onPress={() => { void handleExpirationAlertsToggle(); }}
+              style={[styles.toggle, {
+                backgroundColor: expirationAlertsEnabled ? colors.accent : colors.surface,
+                borderColor: expirationAlertsEnabled ? colors.accent : colors.border,
+              }]}
+            >
+              <AppText style={{ color: expirationAlertsEnabled ? colors.accentText : colors.text }}>
+                {expirationAlertsEnabled ? t('expirationAlertsOn') : t('expirationAlertsOff')}
+              </AppText>
+            </Pressable>
+            <AppText variant="muted">{t('expirationAlertsDescription')}</AppText>
+            <View style={styles.options}>
+              {Array.from({ length: MAX_EXPIRATION_ALERT_DAYS - MIN_EXPIRATION_ALERT_DAYS + 1 }, (_, index) => {
+                const days = index + MIN_EXPIRATION_ALERT_DAYS;
+                const selected = days === expirationAlertDays;
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected, disabled: !ready }}
+                    disabled={!ready}
+                    key={days}
+                    onPress={() => setExpirationAlertDays(days)}
+                    style={[styles.dayOption, {
+                      backgroundColor: selected ? colors.accent : colors.surface,
+                      borderColor: selected ? colors.accent : colors.border,
+                    }]}
+                  >
+                    <AppText style={{ color: selected ? colors.accentText : colors.text }}>{days}</AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -192,6 +263,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggle: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  options: { flexDirection: 'row', gap: spacing.xs },
+  dayOption: {
+    flex: 1,
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

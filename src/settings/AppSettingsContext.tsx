@@ -8,12 +8,14 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 export type LanguageMode = 'system' | 'en' | 'es' | 'it';
 
 type AppSettings = {
+  expirationAlertDays: number;
+  expirationAlertsEnabled: boolean;
   themeMode: ThemeMode;
   languageMode: LanguageMode;
 };
 
 type StoredAppSettings = AppSettings & {
-  version: 1;
+  version: 1 | 2;
 };
 
 type SettingsState = AppSettings & {
@@ -22,6 +24,8 @@ type SettingsState = AppSettings & {
 };
 
 type AppSettingsValue = SettingsState & {
+  setExpirationAlertDays: (days: number) => void;
+  setExpirationAlertsEnabled: (enabled: boolean) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setLanguageMode: (mode: LanguageMode) => void;
 };
@@ -29,7 +33,12 @@ type AppSettingsValue = SettingsState & {
 /** Identifies the device-local app preference record. */
 export const APP_SETTINGS_STORAGE_KEY = '@zerofoodwaste/app-settings';
 
-const DEFAULT_SETTINGS: AppSettings = { themeMode: 'system', languageMode: 'system' };
+const DEFAULT_SETTINGS: AppSettings = {
+  expirationAlertDays: 3,
+  expirationAlertsEnabled: false,
+  themeMode: 'system',
+  languageMode: 'system',
+};
 
 const DEFAULT_CONTEXT: AppSettingsValue = {
   ...DEFAULT_SETTINGS,
@@ -37,6 +46,8 @@ const DEFAULT_CONTEXT: AppSettingsValue = {
   canPersist: false,
   setThemeMode: () => undefined,
   setLanguageMode: () => undefined,
+  setExpirationAlertDays: () => undefined,
+  setExpirationAlertsEnabled: () => undefined,
 };
 
 const AppSettingsContext = createContext<AppSettingsValue>(DEFAULT_CONTEXT);
@@ -47,6 +58,10 @@ function isThemeMode(value: unknown): value is ThemeMode {
 
 function isLanguageMode(value: unknown): value is LanguageMode {
   return value === 'system' || value === 'en' || value === 'es' || value === 'it';
+}
+
+function isExpirationAlertDays(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 7;
 }
 
 /**
@@ -61,12 +76,22 @@ export function decodeAppSettings(raw: string | null): AppSettings | null {
     const stored: unknown = JSON.parse(raw);
     if (typeof stored !== 'object' || stored === null) return null;
     const value = stored as Partial<StoredAppSettings>;
+    if (value.version === 1 && isThemeMode(value.themeMode) && isLanguageMode(value.languageMode)) {
+      return { ...DEFAULT_SETTINGS, themeMode: value.themeMode, languageMode: value.languageMode };
+    }
     if (
-      value.version !== 1
+      value.version !== 2
       || !isThemeMode(value.themeMode)
       || !isLanguageMode(value.languageMode)
+      || typeof value.expirationAlertsEnabled !== 'boolean'
+      || !isExpirationAlertDays(value.expirationAlertDays)
     ) return null;
-    return { themeMode: value.themeMode, languageMode: value.languageMode };
+    return {
+      expirationAlertDays: value.expirationAlertDays,
+      expirationAlertsEnabled: value.expirationAlertsEnabled,
+      themeMode: value.themeMode,
+      languageMode: value.languageMode,
+    };
   } catch {
     return null;
   }
@@ -105,7 +130,9 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!state.ready || !state.canPersist) return;
     const saved: StoredAppSettings = {
-      version: 1,
+      version: 2,
+      expirationAlertDays: state.expirationAlertDays,
+      expirationAlertsEnabled: state.expirationAlertsEnabled,
       themeMode: state.themeMode,
       languageMode: state.languageMode,
     };
@@ -120,8 +147,35 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
     setState((current) => ({ ...current, languageMode, canPersist: true }));
   }
 
+  /**
+   * Sets the number of days before expiration at which an alert is scheduled.
+   *
+   * @param expirationAlertDays - A threshold from one through seven days.
+   * @returns Nothing; the updated preference is persisted by the provider.
+   */
+  function setExpirationAlertDays(expirationAlertDays: number) {
+    if (!isExpirationAlertDays(expirationAlertDays)) return;
+    setState((current) => ({ ...current, expirationAlertDays, canPersist: true }));
+  }
+
+  /**
+   * Enables or disables scheduled expiration alerts.
+   *
+   * @param expirationAlertsEnabled - Whether native alerts should be active.
+   * @returns Nothing; the updated preference is persisted by the provider.
+   */
+  function setExpirationAlertsEnabled(expirationAlertsEnabled: boolean) {
+    setState((current) => ({ ...current, expirationAlertsEnabled, canPersist: true }));
+  }
+
   return (
-    <AppSettingsContext.Provider value={{ ...state, setThemeMode, setLanguageMode }}>
+    <AppSettingsContext.Provider value={{
+      ...state,
+      setExpirationAlertDays,
+      setExpirationAlertsEnabled,
+      setThemeMode,
+      setLanguageMode,
+    }}>
       {children}
     </AppSettingsContext.Provider>
   );
