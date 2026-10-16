@@ -1,5 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,29 +58,12 @@ export function ConnectedPantryScreen() {
 
 function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const {
-    items, status, hasSaveError, failedActionIds, addItem, updateItem,
+    items, status, hasSaveError, failedActionIds, updateItem, changeQuantity, deleteItem,
     consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
-  const { scannedName, manualEntry } = useLocalSearchParams<{
-    scannedName?: string;
-    manualEntry?: string;
-  }>();
-  const scanRequest = scannedName ?? (manualEntry ? 'manual-entry' : undefined);
-  const [handledScanRequest, setHandledScanRequest] = useState<string | undefined>(undefined);
   const [notificationItemId, setNotificationItemId] = useState<string | undefined>(undefined);
-  
-  if (scanRequest !== handledScanRequest) {
-    setHandledScanRequest(scanRequest);
-    if (scanRequest) setModalState({ mode: 'add', initialName: scannedName });
-  }
-  
-  useEffect(() => {
-    if (scannedName || manualEntry) {
-      router.setParams({ scannedName: undefined, manualEntry: undefined });
-    }
-  }, [scannedName, manualEntry]);
 
   // Wait until pantry data is ready, then open the item referenced by a tapped
   // expiration notification. The deferred callback avoids updating modal state
@@ -123,15 +106,11 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const sortedItems = useMemo(() => sortPantryItemsByExpiration(items), [items]);
-  const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'add' || modalState?.mode === 'edit');
+  const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'edit');
 
   const selectedItem = modalState && 'itemId' in modalState
     ? items.find((item) => item.id === modalState.itemId) : undefined;
   const currentFeedback = feedbackQueue[0];
-
-  function handleOpenForm(initialName?: string) {
-    setModalState({ mode: 'add', initialName });
-  }
 
   const handleOpenDetails = useCallback((itemId: string) => {
     setModalState({ mode: 'details', itemId });
@@ -157,6 +136,26 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     setModalState(null);
   }
 
+  function handleDelete() {
+    if (!selectedItem) return;
+    const actionId = deleteItem(selectedItem.id);
+    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodRemoved' }]);
+    setModalState(null);
+  }
+
+  function handleCancelZero() {
+    if (selectedItem) setModalState({ mode: 'details', itemId: selectedItem.id });
+  }
+
+  function handleQuantityChange(delta: 1 | -1) {
+    if (!selectedItem) return;
+    const result = changeQuantity(selectedItem.id, delta);
+    if (result?.status === 'at-zero') setModalState({ mode: 'confirm-zero', itemId: selectedItem.id });
+    if (result?.status === 'updated') {
+      setFeedbackQueue((queue) => [...queue, { id: result.actionId, messageKey: 'foodUpdated' }]);
+    }
+  }
+
   function handleFeedbackDismiss(reason: 'expired' | 'action') {
     if (!currentFeedback) return;
     if (reason === 'action') undoAction(currentFeedback.id);
@@ -174,12 +173,12 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
   }, []);
 
-  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
-    const draft = { name, expirationDate, recipeIngredient };
+  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) {
+    const draft = { name, expirationDate, recipeIngredient, quantity };
     if (modalState?.mode === 'edit') {
       const actionId = updateItem(modalState.itemId, draft);
       if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodUpdated' }]);
-    } else addItem(draft);
+    }
     setModalState(null);
   }
 
@@ -188,6 +187,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
       expirationDate={item.expirationDate}
       id={item.id}
       name={item.name}
+      quantity={item.quantity}
       onOpen={handleOpenDetails}
     />
   ), [handleOpenDetails]);
@@ -212,7 +212,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         <Pressable
           accessibilityLabel={t('addFood')}
           accessibilityRole="button"
-          onPress={() => handleOpenForm()}
+          onPress={() => router.push('/scan-barcode')}
           style={[
             styles.addButton,
             {
@@ -224,26 +224,6 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         >
           <AppText accessible={false} style={[styles.addButtonText, { color: colors.accentText }]}>
             +
-          </AppText>
-        </Pressable>
-      ) : null}
-      {status === 'ready' ? (
-        <Pressable
-          accessibilityLabel={t('scanBarcode')}
-          accessibilityRole="button"
-          onPress={() => router.push('/scan-barcode')}
-          style={[
-            styles.addButton,
-            styles.scanButton,
-            {
-              backgroundColor: colors.accent,
-              bottom: insets.bottom + (currentFeedback ? 152 : 76) + spacing.md,
-              right: insets.right + spacing.md,
-            },
-          ]}
-        >
-          <AppText accessible={false} style={[styles.addButtonText, { color: colors.accentText }]}>
-            📷
           </AppText>
         </Pressable>
       ) : null}
@@ -263,7 +243,10 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         ingredientCatalogStatus={ingredientCatalog.status}
         onClose={handleCloseModal}
         onConsume={handleConsume}
+        onCancelZero={handleCancelZero}
+        onDelete={handleDelete}
         onEdit={handleEdit}
+        onQuantityChange={handleQuantityChange}
         onFindRecipes={handleFindRecipes}
         onSave={handleSave}
         onWaste={handleWaste}
@@ -287,6 +270,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.24)',
   },
-  scanButton: {},
   addButtonText: { fontSize: 32, lineHeight: 36, fontWeight: '400' },
 });

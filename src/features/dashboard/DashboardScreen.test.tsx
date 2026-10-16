@@ -134,14 +134,14 @@ describe("DashboardScreen", () => {
     expect(screen.getByText("No foods recorded in this timeframe.")).toBeTruthy();
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY)) ?? "null")).toEqual({
-        version: 2,
+        version: 3,
         events: [],
       });
     });
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY)) ?? "null")).toEqual({
-        version: 2,
-        items: [milk],
+        version: 3,
+        items: [{ ...milk, quantity: 1 }],
       });
     });
   });

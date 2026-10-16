@@ -2,7 +2,7 @@ import type { PantryItem } from './pantryItem';
 import { sortPantryItemsByExpiration } from './sortPantryItems';
 
 function item(id: string, name: string, expirationDate: string, createdAt = '2026-01-01T00:00:00.000Z'): PantryItem {
-  return { id, name, expirationDate, createdAt, recipeIngredient: null };
+  return { id, name, expirationDate, createdAt, quantity: 1, recipeIngredient: null };
 }
 
 function ids(items: PantryItem[]) {

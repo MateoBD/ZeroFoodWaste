@@ -29,8 +29,58 @@ describe('openFoodFactsProvider', () => {
       name: 'Nutella',
       brand: 'Ferrero',
       imageUrl: 'https://example.com/nutella.jpg',
+      recipeIngredientCandidates: [],
       provider: 'openfoodfacts',
     });
+  });
+
+  it('prefers a single canonical ingredient over English names and categories', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 1, product: {
+        product_name: 'Mjölk', lang: 'sv',
+        ingredients: [{ id: 'en:milk', is_in_taxonomy: 1 }],
+        generic_name_en: 'Whole milk',
+        categories_tags: ['en:dairy-products', 'en:milks'],
+      } }),
+    } as Response);
+
+    const product = await openFoodFactsProvider.getByBarcode('123');
+    expect(product).toMatchObject({
+      name: 'Mjölk',
+      recipeIngredientCandidates: ['milk', 'Whole milk', 'milks'],
+    });
+  });
+
+  it('ignores uncorroborated components of mixed products and processing tags', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 1, product: {
+        product_name: 'Chokladkräm', lang: 'sv', generic_name_en: 'Hazelnut spread',
+        ingredients: [
+          { id: 'en:sugar', is_in_taxonomy: 1 },
+          { id: 'en:e322', is_in_taxonomy: 1 },
+          { id: 'en:hazelnut', is_in_taxonomy: 1 },
+        ],
+        categories_tags: ['en:foods', 'en:spreads'],
+      } }),
+    } as Response);
+
+    const product = await openFoodFactsProvider.getByBarcode('456');
+    expect(product?.recipeIngredientCandidates).toEqual(['hazelnut', 'Hazelnut spread', 'spreads']);
+  });
+
+  it('uses an English generic name or specific category when ingredients are absent', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 1, product: {
+        product_name: 'Mellanmjölk', lang: 'sv', generic_name_en: 'Semi skimmed milk',
+        categories_tags: ['en:beverages', 'en:milks'],
+      } }),
+    } as Response);
+
+    const product = await openFoodFactsProvider.getByBarcode('789');
+    expect(product?.recipeIngredientCandidates).toEqual(['Semi skimmed milk', 'milks']);
   });
 
   it('returns null when the barcode is not in the database', async () => {

@@ -2,6 +2,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AppState } from 'react-native';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PantryProvider, usePantry } from '@/features/pantry/PantryContext';
 import { reconcileExpirationNotifications as reconcileScheduledExpirationNotifications } from '@/features/notifications/expirationNotifications';
@@ -48,11 +50,15 @@ function reconcileExpirationNotifications(
  */
 export default function RootLayout() {
   return (
-    <AppSettingsProvider>
-      <RootNavigation />
-    </AppSettingsProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AppSettingsProvider>
+        <RootNavigation />
+      </AppSettingsProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1 } });
 
 /**
  * Renders navigation using the active language, theme, and status-bar contrast.

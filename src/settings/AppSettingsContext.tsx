@@ -5,7 +5,7 @@ import { createContext, type PropsWithChildren, useContext, useEffect, useState 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 /** Represents a requested app language. */
-export type LanguageMode = 'system' | 'en' | 'es';
+export type LanguageMode = 'system' | 'en' | 'es' | 'it';
 
 type AppSettings = {
   expirationAlertDays: number;
@@ -57,7 +57,7 @@ function isThemeMode(value: unknown): value is ThemeMode {
 }
 
 function isLanguageMode(value: unknown): value is LanguageMode {
-  return value === 'system' || value === 'en' || value === 'es';
+  return value === 'system' || value === 'en' || value === 'es' || value === 'it';
 }
 
 function isExpirationAlertDays(value: unknown): value is number {

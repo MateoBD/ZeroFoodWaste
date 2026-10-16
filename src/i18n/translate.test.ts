@@ -1,9 +1,10 @@
 import { createTranslator } from './translate';
 
 describe('translations', () => {
-  it('renders English and Spanish messages', () => {
+  it('renders English, Spanish and Italian messages', () => {
     expect(createTranslator('en')('pantryTitle')).toBe('Your pantry');
     expect(createTranslator('es')('pantryTitle')).toBe('Tu despensa');
+    expect(createTranslator('it')('pantryTitle')).toBe('La tua dispensa');
     expect(createTranslator('es')('addFood')).toBe('Añadir alimento');
   });
 

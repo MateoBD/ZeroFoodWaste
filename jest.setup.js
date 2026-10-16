@@ -5,3 +5,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('react-native-safe-area-context', () =>
   jest.requireActual('react-native-safe-area-context/jest/mock').default,
 );
+
+jest.mock('react-native-reanimated', () =>
+  ({ Easing: jest.requireActual('react-native').Easing }),
+);

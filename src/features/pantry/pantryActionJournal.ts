@@ -5,7 +5,7 @@ import type { PantryItemDraft } from './usePantryItems';
 export type PantryAction =
   | { id: string; kind: 'add'; item: PantryItem; undoable: false }
   | { id: string; kind: 'edit'; itemId: string; changes: Partial<PantryItemDraft>; undoable: boolean }
-  | { id: string; kind: 'consume' | 'waste'; itemId: string; undoable: boolean }
+  | { id: string; kind: 'consume' | 'waste' | 'delete'; itemId: string; undoable: boolean }
   | { id: string; kind: 'restore'; item: PantryItem; undoable: false };
 
 /**
@@ -22,7 +22,7 @@ export function replayPantryActions(base: readonly PantryItem[], actions: readon
   return actions.reduce<PantryItem[]>((items, action) => {
     if (action.kind === 'add') return [...items, action.item];
     if (action.kind === 'restore') return [...items, action.item];
-    if (action.kind === 'consume' || action.kind === 'waste') {
+    if (action.kind === 'consume' || action.kind === 'waste' || action.kind === 'delete') {
       return items.filter((item) => item.id !== action.itemId);
     }
     if (action.kind === 'edit') {
