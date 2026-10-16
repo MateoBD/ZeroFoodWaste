@@ -870,9 +870,9 @@ describe('PantryScreen', () => {
 
   it('undoes consumption and restores the item at its original position', async () => {
     const screen = await renderLoadedPantry();
-    await addFood(screen, 'Bread', '2999-10-10');
-    await addFood(screen, 'Milk', '2999-10-11');
-    await addFood(screen, 'Rice', '2999-10-12');
+    await addFood(screen, 'Bread', '2026-12-12');
+    await addFood(screen, 'Milk', '2026-12-13');
+    await addFood(screen, 'Rice', '2026-12-14');
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toHaveLength(3);
     });
@@ -891,7 +891,7 @@ describe('PantryScreen', () => {
 
   it('records thrown-away food and removes the event when undone', async () => {
     const screen = await renderLoadedPantry();
-    await addFood(screen, 'Yogurt', '2999-10-10');
+    await addFood(screen, 'Yogurt', '2026-12-12');
 
     await openDetails(screen, 'Yogurt');
     await fireEvent.press(screen.getByRole('button', { name: 'Mark thrown away' }));
