@@ -3,7 +3,8 @@ import type { BottomSheetScrollViewMethods } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Easing, Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/AppText';
