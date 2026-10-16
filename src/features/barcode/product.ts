@@ -6,5 +6,6 @@ export type ProductLookup = Readonly<{
     name: string | null;
     brand: string | null;
     imageUrl: string | null;
+    recipeIngredientCandidates: readonly string[];
     provider: 'openfoodfacts';
   }>;
