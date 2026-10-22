@@ -50,12 +50,18 @@ describe("pantry event storage codec", () => {
     }
   });
 
-  it("rejects duplicate event IDs and invalid outcomes", () => {
-    expect(() =>
+  it("repairs event IDs duplicated across older app sessions", () => {
+    expect(
       parseStoredPantryEvents(
         encodeStoredPantryEvents([consumedEvent, consumedEvent]),
       ),
-    ).toThrow();
+    ).toEqual([
+      consumedEvent,
+      { ...consumedEvent, id: "event-1-migrated-2" },
+    ]);
+  });
+
+  it("rejects invalid outcomes", () => {
     expect(() =>
       parseStoredPantryEvents(
         JSON.stringify({

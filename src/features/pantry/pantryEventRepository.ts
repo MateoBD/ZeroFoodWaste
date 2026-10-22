@@ -5,6 +5,11 @@ import {
   encodeStoredPantryEvents,
   parseStoredPantryEvents,
 } from "./pantryEventStorageCodec";
+import { PANTRY_STORAGE_KEY } from "./pantryRepository";
+import {
+  encodeStoredCombinedPantry,
+  parseStoredCombinedPantry,
+} from "./pantryStorageCodec";
 
 /** Defines the storage boundary for the pantry outcome history. */
 export type PantryEventRepository = {
@@ -34,8 +39,13 @@ export const asyncStoragePantryEventRepository: PantryEventRepository = {
    * @return {Promise<PantryEvent[]>} A promise resolving to stored events, or an empty history.
    */
   async loadEvents() {
-    return parseStoredPantryEvents(
-      await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY),
+    const [pantryRaw, eventsRaw] = await Promise.all([
+      AsyncStorage.getItem(PANTRY_STORAGE_KEY),
+      AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY),
+    ]);
+    return (
+      parseStoredCombinedPantry(pantryRaw)?.events ??
+      parseStoredPantryEvents(eventsRaw)
     );
   },
   /**
@@ -45,9 +55,15 @@ export const asyncStoragePantryEventRepository: PantryEventRepository = {
    * @return {Promise<void>} A promise resolving after the AsyncStorage write succeeds.
    */
   async saveEvents(events) {
-    await AsyncStorage.setItem(
-      PANTRY_EVENT_STORAGE_KEY,
-      encodeStoredPantryEvents(events),
-    );
+    const pantryRaw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+    const combined = parseStoredCombinedPantry(pantryRaw);
+    if (combined) {
+      await AsyncStorage.setItem(
+        PANTRY_STORAGE_KEY,
+        encodeStoredCombinedPantry({ items: combined.items, events: [...events] }),
+      );
+      return;
+    }
+    await AsyncStorage.setItem(PANTRY_EVENT_STORAGE_KEY, encodeStoredPantryEvents(events));
   },
 };

@@ -80,9 +80,22 @@ export function usePantryItems(
       );
   }
 
+  /**
+   * Creates an action ID that does not collide with persisted history from a
+   * previous app session or another pending action in the current session.
+   *
+   * @returns A unique action identifier.
+   */
   function nextActionId() {
-    actionSequence.current += 1;
-    return `pantry-action-${actionSequence.current}`;
+    let candidate: string;
+    do {
+      actionSequence.current += 1;
+      candidate = `pantry-action-${actionSequence.current}`;
+    } while (
+      eventsRef.current.some((event) => event.id === candidate) ||
+      actionsRef.current.some((action) => action.id === candidate)
+    );
+    return candidate;
   }
 
   function compactActions() {

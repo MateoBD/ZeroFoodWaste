@@ -1,7 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import {
+  asyncStoragePantryEventRepository,
+  PANTRY_EVENT_STORAGE_KEY,
+} from './pantryEventRepository';
 import { asyncStoragePantryRepository, PANTRY_STORAGE_KEY } from './pantryRepository';
-import { encodeStoredPantry, parseStoredPantry } from './pantryStorageCodec';
+import {
+  encodeStoredPantry,
+  parseStoredCombinedPantry,
+  parseStoredPantry,
+} from './pantryStorageCodec';
 
 const bread = {
   id: 'item-1',
@@ -38,6 +46,21 @@ describe('parseStoredPantry', () => {
 
   it('reads an explicit null reference from version 3', () => {
     expect(parseStoredPantry(JSON.stringify({ version: 3, items: [bread] }))).toEqual([bread]);
+  });
+
+  it('reads items and history from the combined version-4 format', () => {
+    const event = {
+      id: 'event-1',
+      pantryItemId: 'milk',
+      itemName: 'Milk',
+      outcome: 'consumed',
+      amount: 2,
+      occurredAt: '2026-10-06T09:00:00.000Z',
+    };
+    const raw = JSON.stringify({ version: 4, items: [bread], events: [event] });
+
+    expect(parseStoredPantry(raw)).toEqual([bread]);
+    expect(parseStoredCombinedPantry(raw)).toEqual({ items: [bread], events: [event] });
   });
 
   it('encodes linked and unlinked items with schema version 3', () => {
@@ -139,5 +162,59 @@ describe('asyncStoragePantryRepository', () => {
       PANTRY_STORAGE_KEY,
       JSON.stringify({ version: 3, items: [bread] }),
     );
+  });
+
+  it('preserves embedded version-4 history when pantry items are saved', async () => {
+    const event = {
+      id: 'pantry-action-1',
+      pantryItemId: 'milk',
+      itemName: 'Milk',
+      outcome: 'consumed',
+      amount: 2,
+      occurredAt: '2026-10-06T09:00:00.000Z',
+    };
+    await AsyncStorage.setItem(
+      PANTRY_STORAGE_KEY,
+      JSON.stringify({ version: 4, items: [bread], events: [event] }),
+    );
+
+    await expect(asyncStoragePantryRepository.loadItems()).resolves.toEqual([bread]);
+    await asyncStoragePantryRepository.saveItems([{ ...bread, name: 'Toast' }]);
+
+    expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!)).toEqual({
+      version: 4,
+      items: [{ ...bread, name: 'Toast' }],
+      events: [event],
+    });
+  });
+
+  it('loads and updates embedded version-4 history without using the legacy key', async () => {
+    const event = {
+      id: 'pantry-action-1',
+      pantryItemId: 'milk',
+      itemName: 'Milk',
+      outcome: 'consumed' as const,
+      occurredAt: '2026-10-06T09:00:00.000Z',
+    };
+    await AsyncStorage.setItem(
+      PANTRY_STORAGE_KEY,
+      JSON.stringify({
+        version: 4,
+        items: [bread],
+        events: [{ ...event, amount: 2 }],
+      }),
+    );
+
+    await expect(asyncStoragePantryEventRepository.loadEvents()).resolves.toEqual([
+      { ...event, amount: 2 },
+    ]);
+    await asyncStoragePantryEventRepository.saveEvents([event]);
+
+    expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!)).toEqual({
+      version: 4,
+      items: [bread],
+      events: [{ ...event, amount: 1 }],
+    });
+    expect(await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY)).toBeNull();
   });
 });

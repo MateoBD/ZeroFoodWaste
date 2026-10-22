@@ -1,7 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { PantryItem } from './pantryItem';
-import { encodeStoredPantry, parseStoredPantry } from './pantryStorageCodec';
+import {
+  encodeStoredCombinedPantry,
+  encodeStoredPantry,
+  parseStoredCombinedPantry,
+  parseStoredPantry,
+} from './pantryStorageCodec';
 
 /**
  * Defines the storage boundary used by the pantry UI.
@@ -42,6 +47,13 @@ export const asyncStoragePantryRepository: PantryRepository = {
     return parseStoredPantry(await AsyncStorage.getItem(PANTRY_STORAGE_KEY));
   },
   async saveItems(items) {
-    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, encodeStoredPantry(items));
+    const currentRaw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+    const combined = parseStoredCombinedPantry(currentRaw);
+    await AsyncStorage.setItem(
+      PANTRY_STORAGE_KEY,
+      combined
+        ? encodeStoredCombinedPantry({ items: [...items], events: combined.events })
+        : encodeStoredPantry(items),
+    );
   },
 };
