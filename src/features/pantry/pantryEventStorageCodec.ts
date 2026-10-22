@@ -68,6 +68,30 @@ function isCanonicalTimestamp(value: unknown): value is string {
 }
 
 /**
+ * Preserves valid history created across app sessions whose action counter
+ * restarted from one by assigning deterministic IDs to later collisions.
+ *
+ * @param id - The stored event ID.
+ * @param usedIds - IDs already claimed while decoding the document.
+ * @return {string} The original ID or a collision-free migrated ID.
+ */
+function claimEventId(id: string, usedIds: Set<string>): string {
+  if (!usedIds.has(id)) {
+    usedIds.add(id);
+    return id;
+  }
+
+  let suffix = 2;
+  let candidate = `${id}-migrated-${suffix}`;
+  while (usedIds.has(candidate)) {
+    suffix += 1;
+    candidate = `${id}-migrated-${suffix}`;
+  }
+  usedIds.add(candidate);
+  return candidate;
+}
+
+/**
  * Validates an event's required history fields and, for version-two data,
  * validates any optional pantry snapshot used by the permanent restore action.
  *
@@ -126,18 +150,19 @@ export function parseStoredPantryEvents(raw: string | null): PantryEvent[] {
     throw new Error("Pantry event storage has an unsupported format");
   }
 
-  const ids = new Set<string>();
   for (const event of stored.events) {
-    if (!isPantryEvent(event, stored.version) || ids.has(event.id)) {
+    if (!isPantryEvent(event, stored.version)) {
       throw new Error("Pantry event storage contains an invalid event");
     }
-    ids.add(event.id);
   }
 
-  if (stored.version !== 2) return stored.events;
-  return stored.events.map((event: PantryEvent) => event.itemSnapshot
-    ? { ...event, itemSnapshot: { ...event.itemSnapshot, quantity: 1 } }
-    : event);
+  const ids = new Set<string>();
+  return stored.events.map((event: PantryEvent) => {
+    const migratedEvent = { ...event, id: claimEventId(event.id, ids) };
+    return stored.version === 2 && event.itemSnapshot
+      ? { ...migratedEvent, itemSnapshot: { ...event.itemSnapshot, quantity: 1 } }
+      : migratedEvent;
+  });
 }
 
 /**
