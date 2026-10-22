@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { SymbolView } from 'expo-symbols';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button, ButtonText } from '@/components/ui/Button';
@@ -68,6 +69,7 @@ export function PantryItemForm({
   const [recipeQuery, setRecipeQuery] = useState(initialRecipeIngredient?.name ?? '');
   const [recipeTouched, setRecipeTouched] = useState(false);
   const [isRecipeActive, setIsRecipeActive] = useState(false);
+  const [isIngredientHelpVisible, setIsIngredientHelpVisible] = useState(false);
   const [expirationDateDraft, setExpirationDateDraft] = useState(initialExpirationDate);
   const [quantityDraft, setQuantityDraft] = useState(String(initialQuantity));
   const [hasQuantityError, setHasQuantityError] = useState(false);
@@ -242,7 +244,35 @@ export function PantryItemForm({
         </AppText>
       ) : null}
       <View onLayout={onRecipeSectionLayout} style={styles.suggestionGroup} testID="recipe-ingredient-section">
-          <AppText nativeID="recipe-ingredient-search-label">{t('recipeIngredientSearchLabel')}</AppText>
+          <View style={styles.ingredientLabelRow}>
+            <AppText nativeID="recipe-ingredient-search-label">{t('recipeIngredientSearchLabel')}</AppText>
+            <Pressable
+              accessibilityLabel={t('recipeIngredientHelpLabel')}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isIngredientHelpVisible }}
+              onPress={() => {
+                onBeginManualEntry?.();
+                setIsIngredientHelpVisible((visible) => !visible);
+              }}
+              style={styles.ingredientHelpButton}
+            >
+              <SymbolView
+                name={{ ios: 'info.circle', android: 'info', web: 'info' }}
+                size={22}
+                tintColor={colors.accent}
+              />
+            </Pressable>
+          </View>
+          {isIngredientHelpVisible ? (
+            <AppText
+              accessibilityLiveRegion="polite"
+              nativeID="recipe-ingredient-help"
+              style={styles.helper}
+              variant="muted"
+            >
+              {t('recipeIngredientHelp')}
+            </AppText>
+          ) : null}
           <Input
             accessibilityLabel={t('recipeIngredientSearchLabel')}
             accessibilityLabelledBy="recipe-ingredient-search-label"
@@ -379,6 +409,19 @@ export function PantryItemForm({
 const styles = StyleSheet.create({
   form: { gap: spacing.sm },
   suggestionGroup: { gap: 2 },
+  ingredientLabelRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  ingredientHelpButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   suggestion: {
     minHeight: 48,
     borderWidth: 1,

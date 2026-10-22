@@ -6,6 +6,9 @@ describe('translations', () => {
     expect(createTranslator('es')('pantryTitle')).toBe('Tu despensa');
     expect(createTranslator('it')('pantryTitle')).toBe('La tua dispensa');
     expect(createTranslator('es')('addFood')).toBe('Añadir alimento');
+    expect(createTranslator('en')('recipeIngredientHelpLabel')).toBe('About recipe ingredients');
+    expect(createTranslator('es')('recipeIngredientHelpLabel')).toBe('Acerca de los ingredientes para recetas');
+    expect(createTranslator('it')('recipeIngredientHelpLabel')).toBe('Informazioni sugli ingredienti per le ricette');
   });
 
   it('falls back to English for unsupported languages', () => {

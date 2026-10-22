@@ -313,6 +313,29 @@ describe('PantryScreen', () => {
     expect(screen.queryByTestId('pantry-item-details-modal')).toBeNull();
   });
 
+  it('explains the optional recipe ingredient link on demand', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+
+    const helpButton = screen.getByRole('button', { name: 'About recipe ingredients' });
+    expect(helpButton.props.accessibilityState).toEqual({ expanded: false });
+    expect(screen.queryByText(/This optional link helps match your food to recipes/)).toBeNull();
+
+    await fireEvent.press(helpButton);
+
+    expect(screen.getByText(
+      'This optional link helps match your food to recipes. Choose the closest ingredient in English; it does not change the food name. You can save without one.',
+    )).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'About recipe ingredients' }).props.accessibilityState)
+      .toEqual({ expanded: true });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'About recipe ingredients' }));
+
+    expect(screen.queryByText(/This optional link helps match your food to recipes/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'About recipe ingredients' }).props.accessibilityState)
+      .toEqual({ expanded: false });
+  });
+
   it('keeps the food name plain while linking a separately searched ingredient', async () => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
       { id: '1', name: 'Chicken' },
