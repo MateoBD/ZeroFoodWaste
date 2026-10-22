@@ -1,7 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { asyncStoragePantryRepository, PANTRY_STORAGE_KEY } from './pantryRepository';
-import { encodeStoredPantry, parseStoredPantry } from './pantryStorageCodec';
+import { PANTRY_EVENT_STORAGE_KEY } from './pantryEventRepository';
+import {
+  encodeStoredPantry,
+  parseStoredPantry,
+  parseStoredPantryDocument,
+} from './pantryStorageCodec';
 
 const bread = {
   id: 'item-1',
@@ -128,16 +133,46 @@ describe('asyncStoragePantryRepository', () => {
     const damaged = JSON.stringify({ version: 1, items: [{ ...bread, expirationDate: '2026-02-31' }] });
     await AsyncStorage.setItem(PANTRY_STORAGE_KEY, damaged);
 
-    await expect(asyncStoragePantryRepository.loadItems()).rejects.toThrow();
+    await expect(asyncStoragePantryRepository.load()).rejects.toThrow();
     expect(await AsyncStorage.getItem(PANTRY_STORAGE_KEY)).toBe(damaged);
   });
 
-  it('saves schema-v3 pantry data with null references intact', async () => {
-    await asyncStoragePantryRepository.saveItems([bread]);
+  it('saves pantry and history together in one schema-v4 document', async () => {
+    await asyncStoragePantryRepository.save({ items: [bread], events: [] });
 
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       PANTRY_STORAGE_KEY,
-      JSON.stringify({ version: 3, items: [bread] }),
+      JSON.stringify({ version: 4, items: [bread], events: [] }),
     );
+  });
+
+  it('migrates separate legacy documents and infers each event amount', async () => {
+    const occurredAt = '2026-10-06T09:00:00.000Z';
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify({ version: 3, items: [bread] }));
+    await AsyncStorage.setItem(PANTRY_EVENT_STORAGE_KEY, JSON.stringify({
+      version: 3,
+      events: [
+        {
+          id: 'with-snapshot', pantryItemId: 'old-bread', itemName: 'Old bread',
+          outcome: 'consumed', occurredAt, itemSnapshot: { ...bread, id: 'old-bread', quantity: 4 },
+        },
+        {
+          id: 'without-snapshot', pantryItemId: 'milk', itemName: 'Milk',
+          outcome: 'wasted', occurredAt,
+        },
+      ],
+    }));
+
+    const document = await asyncStoragePantryRepository.load();
+
+    expect(document.items).toEqual([bread]);
+    expect(document.events.map((event) => event.amount)).toEqual([4, 1]);
+  });
+
+  it('rejects an incomplete combined document instead of discarding history', () => {
+    expect(() => parseStoredPantryDocument(
+      JSON.stringify({ version: 4, items: [bread] }),
+      null,
+    )).toThrow();
   });
 });

@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { ConnectedRecipeDetailScreen } from '@/features/recipes/RecipeDetailScreen';
 
-import { readRouteParam } from '../routeParam';
+import { readRouteParam } from '@/features/recipes/routeParam';
 
 /**
  * Route that displays the full details for a selected recipe.

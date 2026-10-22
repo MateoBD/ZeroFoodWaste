@@ -4,9 +4,24 @@ import type { PantryItemDraft } from './usePantryItems';
 /** A pantry change retained while an Undo window may still be open. */
 export type PantryAction =
   | { id: string; kind: 'add'; item: PantryItem; undoable: false }
-  | { id: string; kind: 'edit'; itemId: string; changes: Partial<PantryItemDraft>; undoable: boolean }
-  | { id: string; kind: 'consume' | 'waste' | 'delete'; itemId: string; undoable: boolean }
-  | { id: string; kind: 'restore'; item: PantryItem; undoable: false };
+  | {
+    id: string;
+    kind: 'edit';
+    itemId: string;
+    changes: Partial<Omit<PantryItemDraft, 'quantity'>>;
+    quantityDelta: number;
+    undoable: boolean;
+  }
+  | {
+    id: string;
+    kind: 'consume' | 'waste';
+    itemId: string;
+    amount: number;
+    changes?: Partial<Omit<PantryItemDraft, 'quantity'>>;
+    quantityDelta?: number;
+    undoable: boolean;
+  }
+  | { id: string; kind: 'restore'; item: PantryItem; amount: number; undoable: false };
 
 /**
  * Applies pantry changes in order, preserving item identity and list order.
@@ -21,12 +36,26 @@ export type PantryAction =
 export function replayPantryActions(base: readonly PantryItem[], actions: readonly PantryAction[]): PantryItem[] {
   return actions.reduce<PantryItem[]>((items, action) => {
     if (action.kind === 'add') return [...items, action.item];
-    if (action.kind === 'restore') return [...items, action.item];
-    if (action.kind === 'consume' || action.kind === 'waste' || action.kind === 'delete') {
-      return items.filter((item) => item.id !== action.itemId);
+    if (action.kind === 'restore') {
+      const existing = items.find((item) => item.id === action.item.id);
+      return existing
+        ? items.map((item) => item.id === action.item.id
+          ? { ...item, quantity: item.quantity + action.amount }
+          : item)
+        : [...items, { ...action.item, quantity: action.amount }];
+    }
+    if (action.kind === 'consume' || action.kind === 'waste') {
+      return items.flatMap((item) => {
+        if (item.id !== action.itemId) return [item];
+        const changedItem = action.changes ? { ...item, ...action.changes } : item;
+        const quantity = changedItem.quantity + (action.quantityDelta ?? 0) - action.amount;
+        return quantity > 0 ? [{ ...changedItem, quantity }] : [];
+      });
     }
     if (action.kind === 'edit') {
-      return items.map((item) => item.id === action.itemId ? { ...item, ...action.changes } : item);
+      return items.map((item) => item.id === action.itemId
+        ? { ...item, ...action.changes, quantity: item.quantity + action.quantityDelta }
+        : item);
     }
     return items;
   }, [...base]);

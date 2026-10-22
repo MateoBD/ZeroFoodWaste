@@ -13,9 +13,9 @@ const milk: PantryItem = {
 describe('pantry action journal', () => {
   it('replays later changes after undoing an earlier edit', () => {
     const actions: PantryAction[] = [
-      { id: 'a', kind: 'edit', itemId: 'bread', changes: { name: 'Sourdough' }, undoable: true },
-      { id: 'b', kind: 'edit', itemId: 'bread', changes: { expirationDate: '2999-10-20' }, undoable: true },
-      { id: 'c', kind: 'consume', itemId: 'milk', undoable: true },
+      { id: 'a', kind: 'edit', itemId: 'bread', changes: { name: 'Sourdough' }, quantityDelta: 0, undoable: true },
+      { id: 'b', kind: 'edit', itemId: 'bread', changes: { expirationDate: '2999-10-20' }, quantityDelta: 0, undoable: true },
+      { id: 'c', kind: 'consume', itemId: 'milk', amount: 1, undoable: true },
     ];
 
     expect(replayPantryActions([bread, milk], actions.filter((action) => action.id !== 'a'))).toEqual([
@@ -28,7 +28,7 @@ describe('pantry action journal', () => {
 
   it('restores the original position when consumption is undone', () => {
     const actions: PantryAction[] = [
-      { id: 'a', kind: 'consume', itemId: 'bread', undoable: true },
+      { id: 'a', kind: 'consume', itemId: 'bread', amount: 1, undoable: true },
       { id: 'b', kind: 'add', item: { ...bread, id: 'banana', name: 'Banana' }, undoable: false },
     ];
 
@@ -38,9 +38,9 @@ describe('pantry action journal', () => {
 
   it('compacts finalized actions without losing a later Undo window', () => {
     const actions: PantryAction[] = [
-      { id: 'a', kind: 'edit', itemId: 'bread', changes: { name: 'Sourdough' }, undoable: false },
+      { id: 'a', kind: 'edit', itemId: 'bread', changes: { name: 'Sourdough' }, quantityDelta: 0, undoable: false },
       { id: 'b', kind: 'add', item: milk, undoable: false },
-      { id: 'c', kind: 'consume', itemId: 'bread', undoable: true },
+      { id: 'c', kind: 'consume', itemId: 'bread', amount: 1, undoable: true },
     ];
 
     expect(compactPantryActions([bread], actions)).toEqual({
@@ -49,12 +49,35 @@ describe('pantry action journal', () => {
     });
   });
 
-  it('removes an entry without an outcome while preserving later edits on Undo', () => {
+  it('undoes only one partial outcome while preserving later quantity changes', () => {
+    const pantryBread = { ...bread, quantity: 5 };
     const actions: PantryAction[] = [
-      { id: 'a', kind: 'delete', itemId: 'bread', undoable: true },
-      { id: 'b', kind: 'edit', itemId: 'milk', changes: { quantity: 3 }, undoable: true },
+      { id: 'a', kind: 'consume', itemId: 'bread', amount: 2, undoable: true },
+      { id: 'b', kind: 'consume', itemId: 'bread', amount: 1, undoable: true },
     ];
-    expect(replayPantryActions([bread, milk], actions)).toEqual([{ ...milk, quantity: 3 }]);
-    expect(replayPantryActions([bread, milk], actions.slice(1))).toEqual([bread, { ...milk, quantity: 3 }]);
+    expect(replayPantryActions([pantryBread], actions)).toEqual([{ ...pantryBread, quantity: 2 }]);
+    expect(replayPantryActions([pantryBread], actions.slice(1))).toEqual([{ ...pantryBread, quantity: 4 }]);
+  });
+
+  it('returns an undone event amount on top of a later typed correction', () => {
+    const pantryBread = { ...bread, quantity: 5 };
+    const actions: PantryAction[] = [
+      { id: 'a', kind: 'consume', itemId: 'bread', amount: 2, undoable: true },
+      { id: 'b', kind: 'edit', itemId: 'bread', changes: {}, quantityDelta: 7, undoable: true },
+    ];
+
+    expect(replayPantryActions([pantryBread], actions)).toEqual([{ ...pantryBread, quantity: 10 }]);
+    expect(replayPantryActions([pantryBread], actions.slice(1))).toEqual([{ ...pantryBread, quantity: 12 }]);
+  });
+
+  it('restores only an event amount while preserving the current pantry fields', () => {
+    const currentBread = { ...bread, name: 'Toast', quantity: 3 };
+    const actions: PantryAction[] = [
+      { id: 'restore', kind: 'restore', item: { ...bread, quantity: 5 }, amount: 2, undoable: false },
+    ];
+
+    expect(replayPantryActions([currentBread], actions)).toEqual([
+      { ...currentBread, quantity: 5 },
+    ]);
   });
 });

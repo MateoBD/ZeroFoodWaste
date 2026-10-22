@@ -14,7 +14,7 @@ export type DashboardPeriod = Readonly<{
   wasted: number;
 }>;
 
-/** Calculated counts and chart buckets for one selected timeframe. */
+/** Calculated unit totals and chart buckets for one selected timeframe. */
 export type DashboardMetrics = Readonly<{
   consumed: number;
   wasted: number;
@@ -251,7 +251,7 @@ function periodIndexForEvent(
  * @param events - Consumed and wasted outcomes from the pantry history.
  * @param timeframe - The range selected by the user.
  * @param now - The current local date, injectable for deterministic tests.
- * @return {DashboardMetrics} Counts, waste percentage, and chart-ready periods.
+ * @return {DashboardMetrics} Unit totals, waste percentage, and chart-ready periods.
  */
 export function calculateDashboardMetrics(
   events: readonly PantryEvent[],
@@ -266,8 +266,8 @@ export function calculateDashboardMetrics(
   for (const event of events) {
     if (!eventIsInTimeframe(event, timeframe, now)) continue;
     const eventDate = new Date(event.occurredAt);
-    if (event.outcome === "consumed") consumed += 1;
-    else wasted += 1;
+    if (event.outcome === "consumed") consumed += event.amount;
+    else wasted += event.amount;
 
     const periodIndex = periodIndexForEvent(
       eventDate,
@@ -279,8 +279,8 @@ export function calculateDashboardMetrics(
     const period = periodCounts[periodIndex];
     periodCounts[periodIndex] = {
       ...period,
-      consumed: period.consumed + (event.outcome === "consumed" ? 1 : 0),
-      wasted: period.wasted + (event.outcome === "wasted" ? 1 : 0),
+      consumed: period.consumed + (event.outcome === "consumed" ? event.amount : 0),
+      wasted: period.wasted + (event.outcome === "wasted" ? event.amount : 0),
     };
   }
 

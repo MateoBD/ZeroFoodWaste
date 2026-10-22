@@ -21,7 +21,7 @@ import { PantryLoadState } from './PantryLoadState';
 import type { PantryItem } from './pantryItem';
 import { usePantry, type PantryState } from './PantryContext';
 import { sortPantryItemsByExpiration } from './sortPantryItems';
-import { usePantryItems } from './usePantryItems';
+import { usePantryItems, type PantryItemDraft } from './usePantryItems';
 import {
   EXPIRATION_NOTIFICATION_TYPE,
   addExpirationNotificationResponseListener,
@@ -58,10 +58,14 @@ export function ConnectedPantryScreen() {
 
 function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const {
-    items, status, hasSaveError, failedActionIds, updateItem, changeQuantity, deleteItem,
+    items, status, hasSaveError, failedActionIds, updateItem,
     consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
+  const [pendingZeroDraft, setPendingZeroDraft] = useState<{
+    draft: PantryItemDraft;
+    consumedUnits: number;
+  } | null>(null);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
   const [notificationItemId, setNotificationItemId] = useState<string | undefined>(undefined);
 
@@ -120,40 +124,31 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     if (modalState && 'itemId' in modalState) setModalState({ mode: 'edit', itemId: modalState.itemId });
   }
 
-  function handleCloseModal() { setModalState(null); }
+  function handleCloseModal() {
+    setPendingZeroDraft(null);
+    setModalState(null);
+  }
 
-  function handleConsume() {
+  function handleConsume(amount: number) {
     if (!selectedItem) return;
-    const actionId = consumeItem(selectedItem.id);
+    if (amount === 0) {
+      setModalState({ mode: 'consume', itemId: selectedItem.id });
+      return;
+    }
+    const actionId = consumeItem(selectedItem.id, amount);
     if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodConsumed' }]);
     setModalState(null);
   }
 
   function handleWaste() {
     if (!selectedItem) return;
+    if (modalState?.mode !== 'confirm-waste') {
+      setModalState({ mode: 'confirm-waste', itemId: selectedItem.id });
+      return;
+    }
     const actionId = wasteItem(selectedItem.id);
     if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodWasted' }]);
     setModalState(null);
-  }
-
-  function handleDelete() {
-    if (!selectedItem) return;
-    const actionId = deleteItem(selectedItem.id);
-    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodRemoved' }]);
-    setModalState(null);
-  }
-
-  function handleCancelZero() {
-    if (selectedItem) setModalState({ mode: 'details', itemId: selectedItem.id });
-  }
-
-  function handleQuantityChange(delta: 1 | -1) {
-    if (!selectedItem) return;
-    const result = changeQuantity(selectedItem.id, delta);
-    if (result?.status === 'at-zero') setModalState({ mode: 'confirm-zero', itemId: selectedItem.id });
-    if (result?.status === 'updated') {
-      setFeedbackQueue((queue) => [...queue, { id: result.actionId, messageKey: 'foodUpdated' }]);
-    }
   }
 
   function handleFeedbackDismiss(reason: 'expired' | 'action') {
@@ -173,12 +168,41 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
   }, []);
 
-  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) {
+  function handleSave(
+    name: string,
+    expirationDate: string,
+    recipeIngredient: IngredientReference | null,
+    quantity: number,
+    consumedUnits: number,
+  ) {
     const draft = { name, expirationDate, recipeIngredient, quantity };
     if (modalState?.mode === 'edit') {
-      const actionId = updateItem(modalState.itemId, draft);
-      if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodUpdated' }]);
+      if (quantity === 0 && selectedItem) {
+        setPendingZeroDraft({
+          draft,
+          consumedUnits: consumedUnits > 0 ? consumedUnits : selectedItem.quantity,
+        });
+        setModalState({ mode: 'confirm-zero', itemId: modalState.itemId });
+        return;
+      }
+      const actionId = updateItem(modalState.itemId, draft, consumedUnits);
+      if (actionId) setFeedbackQueue((queue) => [...queue, {
+        id: actionId,
+        messageKey: consumedUnits > 0 ? 'foodConsumed' : 'foodUpdated',
+      }]);
     }
+    setModalState(null);
+  }
+
+  function handleConfirmZero() {
+    if (!selectedItem || !pendingZeroDraft) return;
+    const actionId = updateItem(
+      selectedItem.id,
+      pendingZeroDraft.draft,
+      pendingZeroDraft.consumedUnits,
+    );
+    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodConsumed' }]);
+    setPendingZeroDraft(null);
     setModalState(null);
   }
 
@@ -243,13 +267,12 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         ingredientCatalogStatus={ingredientCatalog.status}
         onClose={handleCloseModal}
         onConsume={handleConsume}
-        onCancelZero={handleCancelZero}
-        onDelete={handleDelete}
+        onConfirmZero={handleConfirmZero}
         onEdit={handleEdit}
-        onQuantityChange={handleQuantityChange}
         onFindRecipes={handleFindRecipes}
         onSave={handleSave}
         onWaste={handleWaste}
+        zeroConsumedUnits={pendingZeroDraft?.consumedUnits ?? selectedItem?.quantity ?? 0}
       />
     </View>
   );

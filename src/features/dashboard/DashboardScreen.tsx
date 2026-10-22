@@ -66,11 +66,13 @@ export function DashboardScreen() {
   );
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInsetAdjustmentBehavior="automatic"
-      style={[styles.screen, { backgroundColor: colors.background }]}
-    >
+    <>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        style={[styles.screen, { backgroundColor: colors.background }]}
+        testID="dashboard-scroll"
+      >
       <View style={styles.header}>
         <AppText accessibilityRole="header" variant="title">
           {t("dashboardTitle")}
@@ -203,7 +205,7 @@ export function DashboardScreen() {
                           ]}
                         />
                       </View>
-                      <AppText style={styles.chartValue}>{total}</AppText>
+                      <AppText style={styles.chartValue}>{t('unitsAmount', { count: total })}</AppText>
                     </View>
                   );
                 })}
@@ -212,13 +214,15 @@ export function DashboardScreen() {
           </Surface>
         </>
       ) : null}
+      </ScrollView>
+
       <OutcomeHistoryModal
         events={selectedEvents}
         onClose={() => setSelectedOutcome(null)}
         onRestore={restoreEvent}
         outcome={selectedOutcome}
       />
-    </ScrollView>
+    </>
   );
 }
 
@@ -343,6 +347,9 @@ function OutcomeHistoryModal({
                   <AppText variant="muted">
                     {formatOutcomeDate(item.occurredAt)}
                   </AppText>
+                  <AppText variant="muted">
+                    {t('unitsAmount', { count: item.amount })}
+                  </AppText>
                 </View>
                 {item.itemSnapshot ? (
                   <Button
@@ -444,7 +451,7 @@ const styles = StyleSheet.create({
   },
   chartConsumed: { height: "100%" },
   chartWasted: { height: "100%" },
-  chartValue: { width: 24, textAlign: "right", fontSize: 13 },
+  chartValue: { width: 62, textAlign: "right", fontSize: 13 },
   modalBackdrop: {
     flex: 1,
     justifyContent: "flex-end",

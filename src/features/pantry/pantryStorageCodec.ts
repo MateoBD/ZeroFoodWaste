@@ -1,7 +1,16 @@
 import { isValidCalendarDate } from './calendarDate';
 import { isValidPantryQuantity, type PantryItem } from './pantryItem';
+import type { PantryEvent } from './pantryEvent';
+import { encodeStoredPantryEvents, parseStoredPantryEvents } from './pantryEventStorageCodec';
 
 type StoredPantry = { version: 3; items: PantryItem[] };
+type StoredPantryDocument = { version: 4; items: PantryItem[]; events: PantryEvent[] };
+
+/** Active pantry items and outcome history persisted as one coherent snapshot. */
+export type PantryDocument = Readonly<{
+  items: PantryItem[];
+  events: PantryEvent[];
+}>;
 
 /**
  * Checks whether stored data is a complete TheMealDB ingredient reference.
@@ -110,4 +119,55 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
 export function encodeStoredPantry(items: readonly PantryItem[]): string {
   const data: StoredPantry = { version: 3, items: [...items] };
   return JSON.stringify(data);
+}
+
+/**
+ * Reads the current combined document or migrates the two legacy documents.
+ *
+ * @param pantryRaw - The active pantry document stored under the pantry key.
+ * @param legacyEventsRaw - The former standalone outcome-history document.
+ * @returns The validated current pantry and history state.
+ * @throws Error when either required stored document is malformed or unsupported.
+ */
+export function parseStoredPantryDocument(
+  pantryRaw: string | null,
+  legacyEventsRaw: string | null,
+): PantryDocument {
+  if (pantryRaw !== null) {
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(pantryRaw);
+    } catch {
+      return { items: parseStoredPantry(pantryRaw), events: [] };
+    }
+    if (typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate)) {
+      const stored = candidate as Record<string, unknown>;
+      if (stored.version === 4 && Array.isArray(stored.items) && Array.isArray(stored.events)) {
+        return {
+          items: parseStoredPantry(JSON.stringify({ version: 3, items: stored.items })),
+          events: parseStoredPantryEvents(encodeStoredPantryEvents(stored.events as PantryEvent[])),
+        };
+      }
+    }
+  }
+
+  return {
+    items: parseStoredPantry(pantryRaw),
+    events: parseStoredPantryEvents(legacyEventsRaw),
+  };
+}
+
+/**
+ * Serializes active pantry items and history in one versioned document.
+ *
+ * @param document - The complete device-local pantry state.
+ * @returns The version 4 document serialized as JSON.
+ */
+export function encodeStoredPantryDocument(document: PantryDocument): string {
+  const stored: StoredPantryDocument = {
+    version: 4,
+    items: [...document.items],
+    events: [...document.events],
+  };
+  return JSON.stringify(stored);
 }

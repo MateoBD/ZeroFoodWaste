@@ -32,7 +32,13 @@ type PantryItemFormProps = {
   onRecipeFocus?: () => void;
   onRecipeBlur?: () => void;
   onCancel: () => void;
-  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) => void;
+  onSave: (
+    name: string,
+    expirationDate: string,
+    recipeIngredient: IngredientReference | null,
+    quantity: number,
+    consumedUnits: number,
+  ) => void;
 };
 
 /**
@@ -70,6 +76,7 @@ export function PantryItemForm({
   const [isRecipeActive, setIsRecipeActive] = useState(false);
   const [expirationDateDraft, setExpirationDateDraft] = useState(initialExpirationDate);
   const [quantityDraft, setQuantityDraft] = useState(String(initialQuantity));
+  const [stepperConsumedUnits, setStepperConsumedUnits] = useState(0);
   const [hasQuantityError, setHasQuantityError] = useState(false);
   const [hasNameError, setHasNameError] = useState(false);
   const [expirationError, setExpirationError] = useState<'required' | 'invalid' | 'past' | null>(
@@ -91,8 +98,9 @@ export function PantryItemForm({
   const effectiveIngredient = recipeTouched ? selectedIngredient : selectedIngredient ?? scanSuggestion;
   const displayedRecipeQuery = recipeTouched ? recipeQuery : effectiveIngredient?.name ?? recipeQuery;
   const numericQuantity = Number(quantityDraft.trim());
-  const canDecreaseQuantity = /^\d+$/.test(quantityDraft.trim()) && isValidPantryQuantity(numericQuantity) && numericQuantity > 1;
-  const canIncreaseQuantity = /^\d+$/.test(quantityDraft.trim()) && isValidPantryQuantity(numericQuantity) && numericQuantity < Number.MAX_SAFE_INTEGER;
+  const isWholeQuantity = /^\d+$/.test(quantityDraft.trim()) && Number.isSafeInteger(numericQuantity);
+  const canDecreaseQuantity = isEditing && isWholeQuantity && numericQuantity > 0;
+  const canIncreaseQuantity = isEditing && isWholeQuantity && numericQuantity < Number.MAX_SAFE_INTEGER;
   const recipeSuggestions = useMemo(
     () => isRecipeActive && recipeQuery.trim().length >= 2
       ? matchIngredients(recipeQuery, ingredientCatalog) : [],
@@ -121,6 +129,7 @@ export function PantryItemForm({
     if (delta < 0 && !canDecreaseQuantity) return;
     if (delta > 0 && !canIncreaseQuantity) return;
     setQuantityDraft(String(numericQuantity + delta));
+    setStepperConsumedUnits((amount) => delta < 0 ? amount + 1 : Math.max(0, amount - 1));
     setHasQuantityError(false);
   }
 
@@ -131,7 +140,8 @@ export function PantryItemForm({
     const quantity = Number(trimmedQuantity);
     let isFormValid = true;
 
-    if (!/^\d+$/.test(trimmedQuantity) || !isValidPantryQuantity(quantity)) {
+    const isAllowedZero = isEditing && quantity === 0;
+    if (!/^\d+$/.test(trimmedQuantity) || (!isAllowedZero && !isValidPantryQuantity(quantity))) {
       setHasQuantityError(true);
       isFormValid = false;
     }
@@ -163,7 +173,7 @@ export function PantryItemForm({
     setHasNameError(false);
     setHasQuantityError(false);
     setExpirationError(null);
-    onSave(trimmedName, trimmedExpiration, effectiveIngredient, quantity);
+    onSave(trimmedName, trimmedExpiration, effectiveIngredient, quantity, stepperConsumedUnits);
   }
 
   return (
@@ -198,22 +208,28 @@ export function PantryItemForm({
       ) : null}
       <AppText nativeID="food-quantity-label">{t('quantityLabel')}</AppText>
       <View style={styles.quantityRow}>
-        <Pressable
-          accessibilityLabel={t('decreaseQuantity')}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canDecreaseQuantity }}
-          disabled={!canDecreaseQuantity}
-          onPress={() => stepQuantity(-1)}
-          style={[styles.quantityButton, { borderColor: colors.border }]}
-        >
-          <AppText style={{ color: canDecreaseQuantity ? colors.text : colors.mutedText }}>−</AppText>
-        </Pressable>
+        {isEditing ? (
+          <Pressable
+            accessibilityLabel={t('consumeOneUnit')}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canDecreaseQuantity }}
+            disabled={!canDecreaseQuantity}
+            onPress={() => stepQuantity(-1)}
+            style={[styles.quantityButton, { borderColor: colors.border }]}
+          >
+            <AppText style={{ color: canDecreaseQuantity ? colors.text : colors.mutedText }}>−</AppText>
+          </Pressable>
+        ) : null}
         <Input
           accessibilityLabel={t('quantityLabel')}
           accessibilityLabelledBy="food-quantity-label"
           aria-invalid={hasQuantityError}
           keyboardType="number-pad"
-          onChangeText={(value) => { setQuantityDraft(value); setHasQuantityError(false); }}
+          onChangeText={(value) => {
+            setQuantityDraft(value);
+            setStepperConsumedUnits(0);
+            setHasQuantityError(false);
+          }}
           onFocus={onBeginManualEntry}
           onSubmitEditing={() => expirationInputRef.current?.focus()}
           ref={(input) => { quantityInputRef.current = input ?? null; }}
@@ -225,20 +241,30 @@ export function PantryItemForm({
           }]}
           value={quantityDraft}
         />
-        <Pressable
-          accessibilityLabel={t('increaseQuantity')}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canIncreaseQuantity }}
-          disabled={!canIncreaseQuantity}
-          onPress={() => stepQuantity(1)}
-          style={[styles.quantityButton, { borderColor: colors.border }]}
-        >
-          <AppText style={{ color: canIncreaseQuantity ? colors.text : colors.mutedText }}>+</AppText>
-        </Pressable>
+        {isEditing ? (
+          <Pressable
+            accessibilityLabel={t('addOneUnit')}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canIncreaseQuantity }}
+            disabled={!canIncreaseQuantity}
+            onPress={() => stepQuantity(1)}
+            style={[styles.quantityButton, { borderColor: colors.border }]}
+          >
+            <AppText style={{ color: canIncreaseQuantity ? colors.text : colors.mutedText }}>+</AppText>
+          </Pressable>
+        ) : null}
       </View>
+      {isEditing ? <AppText variant="muted">{t('quantityCorrectionHint')}</AppText> : null}
+      {stepperConsumedUnits > 0 ? (
+        <AppText accessibilityLiveRegion="polite">
+          {stepperConsumedUnits === 1
+            ? t('savingWillRecordOneConsumed')
+            : t('savingWillRecordConsumed', { count: stepperConsumedUnits })}
+        </AppText>
+      ) : null}
       {hasQuantityError ? (
         <AppText accessibilityLiveRegion="assertive" accessibilityRole="alert" variant="error">
-          {t('quantityInvalid')}
+          {t(isEditing ? 'quantityEditInvalid' : 'quantityInvalid')}
         </AppText>
       ) : null}
       <View onLayout={onRecipeSectionLayout} style={styles.suggestionGroup} testID="recipe-ingredient-section">
@@ -272,7 +298,11 @@ export function PantryItemForm({
           />
           {effectiveIngredient ? (
             <View style={styles.linkedIngredientRow}>
-              <AppText style={styles.helper} variant="muted">{`${t('ingredientLinkedLabel')}: ${effectiveIngredient.name}`}</AppText>
+              <AppText style={styles.helper} variant="muted">
+                {scanSuggestion && !recipeTouched
+                  ? `${t('scanIngredientSuggestion')}: ${effectiveIngredient.name}`
+                  : `${t('ingredientLinkedLabel')}: ${effectiveIngredient.name}`}
+              </AppText>
               <Pressable
                 accessibilityLabel={t('clearRecipeIngredient')}
                 accessibilityRole="button"

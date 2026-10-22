@@ -97,10 +97,10 @@ describe('BarcodeScannerScreen', () => {
     expect(mockSheetIndex).toBe(1);
     expect(screen.getByLabelText('Food name').props.value).toBe('Mjölk');
     expect(screen.getByLabelText('Choose a recipe ingredient').props.value).toBe('Milk');
+    expect(screen.getByText('Editable suggestion from barcode lookup: Milk')).toBeTruthy();
     expect(screen.getByLabelText('Quantity (units)').props.value).toBe('1');
     await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '4');
-    await fireEvent.press(screen.getByRole('button', { name: 'Increase quantity' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
+    expect(screen.queryByRole('button', { name: 'Add one unit' })).toBeNull();
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
     expect(mockAddItem).toHaveBeenCalledWith({

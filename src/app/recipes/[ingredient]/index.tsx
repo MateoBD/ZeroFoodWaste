@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { RecipeResultsScreen } from '@/features/recipes/RecipeResultsScreen';
 
-import { readRouteParam } from '../routeParam';
+import { readRouteParam } from '@/features/recipes/routeParam';
 
 /**
  * Route that lists recipes matching the ingredient selected from the pantry.

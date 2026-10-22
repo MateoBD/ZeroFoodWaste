@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { RecipeSuggestionsScreen } from '@/features/recipes/RecipeSuggestionsScreen';
 
-import { readRouteParam } from '../recipes/routeParam';
+import { readRouteParam } from '@/features/recipes/routeParam';
 
 /**
  * Composes the automatic recipe suggestions tab.
