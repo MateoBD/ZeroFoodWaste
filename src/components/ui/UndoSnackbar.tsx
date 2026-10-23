@@ -74,6 +74,7 @@ export function UndoSnackbar({ message, isError = false, actionLabel, bottom, on
 
   return (
     <Animated.View
+      nativeID="safe-area-feedback"
       style={[
         styles.container,
         {

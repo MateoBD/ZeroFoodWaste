@@ -15,7 +15,14 @@ import { RecommendationProvider } from './recommendations/RecommendationContext'
 import { RECOMMENDATION_STORAGE_KEY } from './recommendations/storage';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: (effect: () => void) => { mockUseEffect(effect, [effect]); } }));
+jest.mock('expo-router', () => {
+  const router = { push: jest.fn() };
+  return {
+    router,
+    useRouter: () => router,
+    useFocusEffect: (effect: () => void) => { mockUseEffect(effect, [effect]); },
+  };
+});
 jest.mock('@shopify/flash-list', () => ({
   FlashList: jest.requireActual('react-native').FlatList,
 }));

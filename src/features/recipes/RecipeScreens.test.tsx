@@ -8,7 +8,10 @@ import { RecipeDetailScreen } from './RecipeDetailScreen';
 import { RecipeResultsScreen } from './RecipeResultsScreen';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => {
+  const router = { push: jest.fn() };
+  return { router, useRouter: () => router };
+});
 
 const mockUseLocales = useLocales as jest.Mock;
 

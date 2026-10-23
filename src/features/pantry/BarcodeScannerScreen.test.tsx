@@ -28,7 +28,10 @@ jest.mock('expo-camera', () => ({
   },
   useCameraPermissions: () => [mockPermission, jest.fn()],
 }));
-jest.mock('expo-router', () => ({ router: { back: (...args: unknown[]) => mockRouterBack(...args) } }));
+jest.mock('expo-router', () => {
+  const router = { back: (...args: unknown[]) => mockRouterBack(...args) };
+  return { router, useRouter: () => router };
+});
 jest.mock('./PantryContext', () => ({ usePantry: () => ({ addItem: mockAddItem }) }));
 jest.mock('@/features/recipes/useIngredientCatalog', () => ({
   useIngredientCatalog: () => ({ items: mockCatalog, status: 'ready' }),

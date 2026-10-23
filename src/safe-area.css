@@ -1,0 +1,16 @@
+/* Expo Router SDK 58 provides web safe areas through CSS environment insets. */
+#safe-area-floating {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+}
+
+#safe-area-floating-feedback {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px) !important;
+}
+
+#safe-area-feedback {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+}
+
+#safe-area-scanner-controls {
+  top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+}

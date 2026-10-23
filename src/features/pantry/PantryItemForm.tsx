@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentRef } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
@@ -16,6 +17,8 @@ import { matchScannedRecipeIngredient } from '@/features/barcode/recipeIngredien
 import { isTodayOrFutureCalendarDate, isValidCalendarDate } from './calendarDate';
 import { ExpirationDatePicker } from './ExpirationDatePicker';
 import { isValidPantryQuantity } from './pantryItem';
+
+type FormInputHandle = ComponentRef<typeof TextInput> | ComponentRef<typeof BottomSheetTextInput>;
 
 type PantryItemFormProps = {
   initialName?: string;
@@ -234,7 +237,11 @@ export function PantryItemForm({
           }}
           onFocus={onBeginManualEntry}
           onSubmitEditing={() => expirationInputRef.current?.focus()}
-          ref={(input) => { quantityInputRef.current = input ?? null; }}
+          ref={(input: FormInputHandle | null | undefined) => {
+            quantityInputRef.current = input && 'focus' in input && typeof input.focus === 'function'
+              ? input
+              : null;
+          }}
           returnKeyType="next"
           style={[styles.input, styles.quantityInput, {
             backgroundColor: colors.surface,
@@ -393,7 +400,11 @@ export function PantryItemForm({
           onSubmitEditing={handleSubmit}
           placeholder={t('expirationDatePlaceholder')}
           placeholderTextColor={colors.mutedText}
-          ref={(input) => { expirationInputRef.current = input ?? null; }}
+          ref={(input: FormInputHandle | null | undefined) => {
+            expirationInputRef.current = input && 'focus' in input && typeof input.focus === 'function'
+              ? input
+              : null;
+          }}
           returnKeyType="done"
           style={[
             styles.input,

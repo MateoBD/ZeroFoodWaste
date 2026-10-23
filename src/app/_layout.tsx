@@ -5,6 +5,8 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import '../safe-area.css';
+
 import { PantryProvider, usePantry } from '@/features/pantry/PantryContext';
 import { reconcileExpirationNotifications as reconcileScheduledExpirationNotifications } from '@/features/notifications/expirationNotifications';
 import {
