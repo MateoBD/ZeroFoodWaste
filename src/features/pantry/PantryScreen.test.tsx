@@ -14,14 +14,15 @@ import { PANTRY_STORAGE_KEY } from './pantryRepository';
 let mockNavigate: (route: 'pantry' | 'scanner') => void = () => undefined;
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({
-  router: {
+jest.mock('expo-router', () => {
+  const router = {
     push: jest.fn((path: string | { pathname: string }) => {
       if (path === '/scan-barcode') mockNavigate('scanner');
     }),
     back: jest.fn(() => mockNavigate('pantry')),
-  },
-}));
+  };
+  return { router, useRouter: () => router };
+});
 jest.mock('expo-camera', () => ({
   CameraView: () => null,
   useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],

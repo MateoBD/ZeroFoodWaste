@@ -1,6 +1,6 @@
 import BottomSheet, { BottomSheetScrollView, useBottomSheetTimingConfigs } from '@gorhom/bottom-sheet';
 import type { BottomSheetScrollViewMethods } from '@gorhom/bottom-sheet';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, View } from 'react-native';
@@ -28,6 +28,7 @@ import { usePantry } from './PantryContext';
  * @returns The scan-first add food screen.
  */
 export function BarcodeScannerScreen() {
+  const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
   const [scanEnabled, setScanEnabled] = useState(true);
@@ -161,7 +162,11 @@ export function BarcodeScannerScreen() {
           ) : null}
         </View>
       )}
-      {!sheetExpanded && !permissionNeedsManualEntry ? <View style={[styles.cameraControls, { top: insets.top + spacing.sm }]}>
+      {!sheetExpanded && !permissionNeedsManualEntry ? (
+        <View
+          nativeID="safe-area-scanner-controls"
+          style={[styles.cameraControls, { top: insets.top + spacing.sm }]}
+        >
         <Pressable
           accessibilityLabel={t('close')}
           accessibilityRole="button"
@@ -170,7 +175,8 @@ export function BarcodeScannerScreen() {
         >
           <AppText>{t('close')}</AppText>
         </Pressable>
-      </View> : null}
+        </View>
+      ) : null}
       {isProcessing ? (
         <View style={styles.scanStatus}>
           <ActivityIndicator color={colors.accent} />

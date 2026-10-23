@@ -1,5 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,6 +59,7 @@ export function ConnectedPantryScreen() {
 }
 
 function PantryScreenView({ pantry }: { pantry: PantryState }) {
+  const router = useRouter();
   const {
     items, status, hasSaveError, failedActionIds, updateItem,
     consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
@@ -189,7 +190,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const handleFindRecipes = useCallback((ingredient: IngredientReference) => {
     setModalState(null);
     router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
-  }, []);
+  }, [router]);
 
   function handleSave(
     name: string,
@@ -263,6 +264,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         <Pressable
           accessibilityLabel={t('addFood')}
           accessibilityRole="button"
+          nativeID={currentFeedback ? 'safe-area-floating-feedback' : 'safe-area-floating'}
           onPress={() => router.push('/scan-barcode')}
           style={[
             styles.addButton,
