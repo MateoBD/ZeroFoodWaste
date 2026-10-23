@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -15,7 +16,7 @@ import type { PantryItem } from './pantryItem';
 
 /** Identifies the content shown in the single pantry item modal. */
 export type PantryModalState =
-  | { mode: 'details' | 'edit' | 'confirm-zero'; itemId: string }
+  | { mode: 'details' | 'edit' | 'consume' | 'confirm-waste' | 'confirm-zero'; itemId: string }
   | null;
 
 type PantryItemModalProps = {
@@ -25,13 +26,18 @@ type PantryItemModalProps = {
   ingredientCatalogStatus: IngredientCatalogStatus;
   onClose: () => void;
   onEdit: () => void;
-  onConsume: () => void;
-  onDelete: () => void;
-  onCancelZero: () => void;
-  onQuantityChange: (delta: 1 | -1) => void;
+  onConsume: (amount: number) => void;
+  onConfirmZero: () => void;
+  zeroConsumedUnits: number;
   onWaste: () => void;
   onFindRecipes: (ingredient: IngredientReference) => void;
-  onSave: (name: string, expirationDate: string, recipeIngredient: IngredientReference | null, quantity: number) => void;
+  onSave: (
+    name: string,
+    expirationDate: string,
+    recipeIngredient: IngredientReference | null,
+    quantity: number,
+    consumedUnits: number,
+  ) => void;
 };
 
 /**
@@ -42,10 +48,11 @@ type PantryItemModalProps = {
  */
 export function PantryItemModal({
   state, item, ingredientCatalog, ingredientCatalogStatus,
-  onClose, onEdit, onConsume, onDelete, onCancelZero, onQuantityChange, onWaste, onFindRecipes, onSave,
+  onClose, onEdit, onConsume, onConfirmZero, zeroConsumedUnits, onWaste, onFindRecipes, onSave,
 }: PantryItemModalProps) {
   const t = useMessages();
   const { colors } = useTheme();
+
   if (!state || !item) return null;
 
   const isDetails = state.mode === 'details';
@@ -69,13 +76,38 @@ export function PantryItemModal({
         >
           {state.mode === 'confirm-zero' ? (
             <View style={styles.details}>
-              <AppText accessibilityRole="header" variant="title">{t('quantityZeroQuestion')}</AppText>
-              <AppText>{item.name}</AppText>
-              <Button onPress={onCancelZero}><ButtonText>{t('cancel')}</ButtonText></Button>
-              <Button onPress={onConsume}><ButtonText>{t('markConsumed')}</ButtonText></Button>
-              <Pressable accessibilityRole="button" onPress={onDelete}
-                style={[styles.secondaryButton, { borderColor: colors.border }]}>
-                <AppText style={{ color: colors.errorText }}>{t('removeFood')}</AppText>
+              <AppText accessibilityRole="header" variant="title">{t('zeroQuantityTitle')}</AppText>
+              <AppText>
+                {zeroConsumedUnits === 1
+                  ? t('zeroQuantityBodyOne')
+                  : t('zeroQuantityBody', { count: zeroConsumedUnits })}
+              </AppText>
+              <Button onPress={onClose}><ButtonText>{t('cancel')}</ButtonText></Button>
+              <Button onPress={onConfirmZero}>
+                <ButtonText>{t('confirmConsumeAll', { count: zeroConsumedUnits })}</ButtonText>
+              </Button>
+            </View>
+          ) : state.mode === 'consume' ? (
+            <ConsumeQuantityPrompt item={item} onCancel={onClose} onConsume={onConsume} />
+          ) : state.mode === 'confirm-waste' ? (
+            <View style={styles.details}>
+              <AppText accessibilityRole="header" variant="title">{t('wasteConfirmationTitle')}</AppText>
+              <AppText>
+                {item.quantity === 1
+                  ? t('wasteConfirmationBodyOne')
+                  : t('wasteConfirmationBody', { count: item.quantity })}
+              </AppText>
+              <Button onPress={onClose}><ButtonText>{t('cancel')}</ButtonText></Button>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onWaste}
+                style={[styles.secondaryButton, { borderColor: colors.border }]}
+              >
+                <AppText style={{ color: colors.errorText }}>
+                  {item.quantity === 1
+                    ? t('confirmWasteUnit')
+                    : t('confirmWasteUnits', { count: item.quantity })}
+                </AppText>
               </Pressable>
             </View>
           ) : isDetails ? (
@@ -87,17 +119,7 @@ export function PantryItemModal({
                 </Pressable>
               </View>
               <AppText>{`${t('expiresLabel')}: ${item.expirationDate}`}</AppText>
-              <View style={styles.quantityControls}>
-                <Pressable accessibilityLabel={t('decreaseQuantity')} accessibilityRole="button"
-                  onPress={() => onQuantityChange(-1)} style={[styles.quantityButton, { borderColor: colors.border }]}>
-                  <AppText>−</AppText>
-                </Pressable>
-                <AppText>{`${t('quantityLabel')}: ${item.quantity}`}</AppText>
-                <Pressable accessibilityLabel={t('increaseQuantity')} accessibilityRole="button"
-                  onPress={() => onQuantityChange(1)} style={[styles.quantityButton, { borderColor: colors.border }]}>
-                  <AppText>+</AppText>
-                </Pressable>
-              </View>
+              <AppText>{`${t('quantityLabel')}: ${item.quantity}`}</AppText>
               {urgency ? <ExpirationBadge expirationDate={item.expirationDate} /> : null}
               {item.recipeIngredient ? (
                 <View style={styles.recipeSection}>
@@ -120,7 +142,7 @@ export function PantryItemModal({
                 </Button>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={onConsume}
+                  onPress={() => item.quantity === 1 ? onConsume(1) : onConsume(0)}
                   style={[styles.secondaryButton, styles.action, { borderColor: colors.border }]}
                 >
                   <AppText style={{ color: colors.text }}>{t('markConsumed')}</AppText>
@@ -156,6 +178,67 @@ export function PantryItemModal({
         </ScrollView>
       </View>
     </Modal>
+  );
+}
+
+/**
+ * Lets the user choose a positive consumed amount from one multi-unit entry.
+ *
+ * @param props - The available item and cancel or consume callbacks.
+ * @returns The quantity chooser with a live remaining-count preview.
+ */
+function ConsumeQuantityPrompt({
+  item,
+  onCancel,
+  onConsume,
+}: {
+  item: PantryItem;
+  onCancel: () => void;
+  onConsume: (amount: number) => void;
+}) {
+  const [consumeAmount, setConsumeAmount] = useState(1);
+  const t = useMessages();
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.details}>
+      <AppText accessibilityRole="header" variant="title">{t('consumeQuantityTitle')}</AppText>
+      <AppText>{t('availableUnits', { count: item.quantity })}</AppText>
+      <View style={styles.quantityControls}>
+        <Pressable
+          accessibilityLabel={t('decreaseConsumption')}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: consumeAmount === 1 }}
+          disabled={consumeAmount === 1}
+          onPress={() => setConsumeAmount((amount) => Math.max(1, amount - 1))}
+          style={[styles.quantityButton, { borderColor: colors.border }]}
+        >
+          <AppText>−</AppText>
+        </Pressable>
+        <AppText>{consumeAmount}</AppText>
+        <Pressable
+          accessibilityLabel={t('increaseConsumption')}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: consumeAmount === item.quantity }}
+          disabled={consumeAmount === item.quantity}
+          onPress={() => setConsumeAmount((amount) => Math.min(item.quantity, amount + 1))}
+          style={[styles.quantityButton, { borderColor: colors.border }]}
+        >
+          <AppText>+</AppText>
+        </Pressable>
+      </View>
+      <AppText accessibilityLiveRegion="polite">
+        {t('consumptionResult', { consumed: consumeAmount, remaining: item.quantity - consumeAmount })}
+      </AppText>
+      <Button onPress={onCancel}><ButtonText>{t('cancel')}</ButtonText></Button>
+      <Button onPress={() => onConsume(consumeAmount)}>
+        <ButtonText>
+          {consumeAmount === 1
+            ? t('consumeSelectedUnit')
+            : t('consumeSelectedUnits', { count: consumeAmount })}
+        </ButtonText>
+      </Button>
+    </View>
   );
 }
 

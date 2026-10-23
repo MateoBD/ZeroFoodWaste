@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { useLocales } from "expo-localization";
 
 import { DashboardScreen } from "./DashboardScreen";
@@ -65,7 +65,7 @@ describe("DashboardScreen", () => {
     ).toBeTruthy();
     expect(screen.getByText("Consumed versus thrown away")).toBeTruthy();
     expect(screen.getByText("50%")).toBeTruthy();
-    expect(screen.getByLabelText("Consumed: 1, Thrown away: 1")).toBeTruthy();
+    expect(screen.getByLabelText("Consumed units: 1, Wasted units: 1")).toBeTruthy();
   });
 
   it("changes the chart range when a timeframe is selected", async () => {
@@ -120,12 +120,19 @@ describe("DashboardScreen", () => {
       </PantryProvider>,
     );
 
-    await screen.findByRole("button", { name: "Thrown away: 1" });
+    await screen.findByRole("button", { name: "Wasted units: 1" });
     await fireEvent.press(
-      screen.getByRole("button", { name: "Thrown away: 1" }),
+      screen.getByRole("button", { name: "Wasted units: 1" }),
     );
 
     expect(screen.getByText("Thrown-away foods")).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId("dashboard-scroll", {
+          includeHiddenElements: true,
+        }),
+      ).queryByText("Thrown-away foods"),
+    ).toBeNull();
     expect(screen.getByText("Milk")).toBeTruthy();
     await fireEvent.press(
       screen.getByRole("button", { name: "Restore to pantry: Milk" }),
@@ -133,16 +140,50 @@ describe("DashboardScreen", () => {
 
     expect(screen.getByText("No foods recorded in this timeframe.")).toBeTruthy();
     await waitFor(async () => {
-      expect(JSON.parse((await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY)) ?? "null")).toEqual({
-        version: 3,
+      expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY)) ?? "null")).toEqual({
+        version: 4,
+        items: [{ ...milk, quantity: 1 }],
         events: [],
       });
     });
+  });
+
+  it("restores only one event amount while preserving later pantry changes", async () => {
+    const snapshot = {
+      id: "bread",
+      name: "Bread",
+      recipeIngredient: null,
+      expirationDate: "2999-10-15",
+      createdAt: "2026-09-01T10:00:00.000Z",
+      quantity: 5,
+    };
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify({
+      version: 4,
+      items: [{ ...snapshot, name: "Toast", quantity: 3 }],
+      events: [{
+        id: "event-bread",
+        pantryItemId: snapshot.id,
+        itemName: snapshot.name,
+        outcome: "consumed",
+        amount: 2,
+        occurredAt: isoDaysAgo(0),
+        itemSnapshot: snapshot,
+      }],
+    }));
+
+    const screen = await render(
+      <PantryProvider>
+        <DashboardScreen />
+      </PantryProvider>,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Consumed units: 2" }));
+    expect(screen.getAllByText("2 units").length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByRole("button", { name: "Restore to pantry: Bread" }));
+
     await waitFor(async () => {
-      expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY)) ?? "null")).toEqual({
-        version: 3,
-        items: [{ ...milk, quantity: 1 }],
-      });
+      const document = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!);
+      expect(document.items).toEqual([{ ...snapshot, name: "Toast", quantity: 5 }]);
+      expect(document.events).toEqual([]);
     });
   });
 });

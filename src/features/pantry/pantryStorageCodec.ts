@@ -1,17 +1,13 @@
 import { isValidCalendarDate } from './calendarDate';
 import { isValidPantryQuantity, type PantryItem } from './pantryItem';
 import type { PantryEvent } from './pantryEvent';
-import { parseStoredPantryEvents } from './pantryEventStorageCodec';
+import { encodeStoredPantryEvents, parseStoredPantryEvents } from './pantryEventStorageCodec';
 
 type StoredPantry = { version: 3; items: PantryItem[] };
-type StoredCombinedPantry = {
-  version: 4;
-  items: PantryItem[];
-  events: PantryEvent[];
-};
+type StoredPantryDocument = { version: 4; items: PantryItem[]; events: PantryEvent[] };
 
-/** Pantry and history recovered from the combined version-4 storage format. */
-export type CombinedPantryDocument = Readonly<{
+/** Active pantry items and outcome history persisted as one coherent snapshot. */
+export type PantryDocument = Readonly<{
   items: PantryItem[];
   events: PantryEvent[];
 }>;
@@ -71,7 +67,7 @@ function isCanonicalTimestamp(value: string): boolean {
 }
 
 /**
- * Reads v1 through v4 pantry documents and supplies missing legacy fields.
+ * Reads v1 through v3 pantry documents and supplies missing legacy fields.
  *
  * A missing document yields an empty pantry. Invalid data stays on disk for recovery.
  *
@@ -95,18 +91,13 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
 
   const stored = data as Record<string, unknown>;
   const version = stored.version;
-  if (
-    (version !== 1 && version !== 2 && version !== 3 && version !== 4) ||
-    !Array.isArray(stored.items) ||
-    (version === 4 && !Array.isArray(stored.events))
-  ) {
+  if ((version !== 1 && version !== 2 && version !== 3) || !Array.isArray(stored.items)) {
     throw new Error('Pantry storage has an unsupported format');
   }
 
-  const itemVersion = version === 4 ? 3 : version;
   const ids = new Set<string>();
   for (const item of stored.items) {
-    if (!isPantryItem(item, itemVersion) || ids.has(item.id)) {
+    if (!isPantryItem(item, version) || ids.has(item.id)) {
       throw new Error('Pantry storage contains an invalid item');
     }
     ids.add(item.id);
@@ -114,8 +105,8 @@ export function parseStoredPantry(raw: string | null): PantryItem[] {
 
   return stored.items.map((item) => ({
     ...item,
-    recipeIngredient: itemVersion === 1 ? null : item.recipeIngredient,
-    quantity: itemVersion === 3 ? item.quantity : 1,
+    recipeIngredient: version === 1 ? null : item.recipeIngredient,
+    quantity: version === 3 ? item.quantity : 1,
   })) as PantryItem[];
 }
 
@@ -131,65 +122,52 @@ export function encodeStoredPantry(items: readonly PantryItem[]): string {
 }
 
 /**
- * Reads the combined version-4 format written by the partial-consumption flow.
+ * Reads the current combined document or migrates the two legacy documents.
  *
- * Version-4 event amounts are retained at runtime. Events missing an amount are
- * assigned their snapshot quantity, or one unit, when this branch writes them.
- *
- * @param raw - Pantry JSON stored under the active pantry key.
- * @returns The combined document, or null when the value uses an older format.
- * @throws When a version-4 document contains invalid pantry or history data.
+ * @param pantryRaw - The active pantry document stored under the pantry key.
+ * @param legacyEventsRaw - The former standalone outcome-history document.
+ * @returns The validated current pantry and history state.
+ * @throws Error when either required stored document is malformed or unsupported.
  */
-export function parseStoredCombinedPantry(
-  raw: string | null,
-): CombinedPantryDocument | null {
-  if (raw === null) return null;
-
-  let candidate: unknown;
-  try {
-    candidate = JSON.parse(raw);
-  } catch {
-    return null;
+export function parseStoredPantryDocument(
+  pantryRaw: string | null,
+  legacyEventsRaw: string | null,
+): PantryDocument {
+  if (pantryRaw !== null) {
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(pantryRaw);
+    } catch {
+      return { items: parseStoredPantry(pantryRaw), events: [] };
+    }
+    if (typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate)) {
+      const stored = candidate as Record<string, unknown>;
+      if (stored.version === 4 && Array.isArray(stored.items) && Array.isArray(stored.events)) {
+        return {
+          items: parseStoredPantry(JSON.stringify({ version: 3, items: stored.items })),
+          events: parseStoredPantryEvents(encodeStoredPantryEvents(stored.events as PantryEvent[])),
+        };
+      }
+    }
   }
-  if (
-    typeof candidate !== 'object' ||
-    candidate === null ||
-    Array.isArray(candidate)
-  ) {
-    return null;
-  }
 
-  const stored = candidate as Record<string, unknown>;
-  if (stored.version !== 4) return null;
-
-  const items = parseStoredPantry(raw);
-  const events = parseStoredPantryEvents(JSON.stringify({
-    version: 3,
-    events: stored.events,
-  }));
-  return { items, events };
+  return {
+    items: parseStoredPantry(pantryRaw),
+    events: parseStoredPantryEvents(legacyEventsRaw),
+  };
 }
 
 /**
- * Serializes the forward-compatible combined pantry format.
+ * Serializes active pantry items and history in one versioned document.
  *
- * @param document - Active pantry items and their complete outcome history.
- * @returns Version-4 JSON with a positive whole-unit amount on every event.
+ * @param document - The complete device-local pantry state.
+ * @returns The version 4 document serialized as JSON.
  */
-export function encodeStoredCombinedPantry(
-  document: CombinedPantryDocument,
-): string {
-  const events = document.events.map((event) => {
-    const storedAmount = (event as PantryEvent & { amount?: unknown }).amount;
-    const amount = isValidPantryQuantity(storedAmount)
-      ? storedAmount
-      : event.itemSnapshot?.quantity ?? 1;
-    return { ...event, amount };
-  });
-  const stored: StoredCombinedPantry = {
+export function encodeStoredPantryDocument(document: PantryDocument): string {
+  const stored: StoredPantryDocument = {
     version: 4,
     items: [...document.items],
-    events,
+    events: [...document.events],
   };
   return JSON.stringify(stored);
 }

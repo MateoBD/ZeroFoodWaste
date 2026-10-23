@@ -13,5 +13,6 @@ export function createTranslator(languageCode: string | null | undefined) {
   i18n.defaultLocale = 'en';
   i18n.enableFallback = true;
   i18n.locale = languageCode ?? 'en';
-  return (key: MessageKey): string => i18n.t(key);
+  return (key: MessageKey, options?: Readonly<Record<string, string | number>>): string =>
+    i18n.t(key, options);
 }
