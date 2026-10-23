@@ -1,17 +1,56 @@
 # ZeroFoodWaste
 
-ZeroFoodWaste is an Expo SDK 57 app for iOS, Android, and local web testing. Its purpose is to help households use food before it expires and reduce domestic food waste. The pantry lets users add and edit food names, whole-unit quantities, and expiration dates, keeps them on the device, and offers a separate editable English TheMealDB ingredient link. A Recipes tab searches all eligible pantry ingredient names and ranks recipes by verified pantry matches and expiration priority.
+ZeroFoodWaste is an Expo SDK 58 app for iOS, Android, and local web testing. Its purpose is to help households use food before it expires and reduce domestic food waste. The pantry lets users add and edit food names, whole-unit quantities, and expiration dates, keeps them on the device, and offers a separate editable English TheMealDB ingredient link. A Recipes tab searches all eligible pantry ingredient names and ranks recipes by verified pantry matches and expiration priority.
 
 ## Get started
 
-Use Node.js 22.13 or newer and pnpm 11.6.0. Keep `pnpm-lock.yaml` as the only lockfile.
+Use Node.js 22.13 or newer on the Node 22 release line and pnpm 11.6.0. Node 25 is not supported by Expo SDK 58. Keep `pnpm-lock.yaml` as the only lockfile.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm start
 ```
 
+### Install Node 22
+
+All contributors should use Node 22 before installing dependencies or running
+project commands. Node 25 is unsupported and can produce local results that do
+not match CI.
+
+**macOS (Homebrew)**
+
+```bash
+brew install node@22
+echo 'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+node --version
+```
+
+**Linux (nvm)**
+
+Install [nvm](https://github.com/nvm-sh/nvm), restart the terminal, then run:
+
+```bash
+nvm install 22
+nvm use 22
+node --version
+```
+
+**Windows (nvm-windows)**
+
+Install [nvm-windows](https://github.com/coreybutler/nvm-windows/releases), open PowerShell as Administrator, then run:
+
+```powershell
+nvm install 22
+nvm use 22
+node --version
+```
+
+Each platform should report `v22.x.x` before running `pnpm install --frozen-lockfile`.
+
 Open an iOS simulator or Android emulator from Expo CLI, or run `pnpm ios` / `pnpm android`. To test locally in a browser, run `pnpm web`; Expo serves the app at the local URL printed by the CLI. Expo Go supports the core pantry flows, but its development console warns that remote Android notifications are unavailable; use a development build to verify full notification behavior. A Reanimated reduced-motion warning is also expected in development when the device accessibility setting is enabled—the app respects that preference. The app supports English, Spanish, and Italian based on the device, browser, or per-app language preference, with English fallback.
+
+The web app remains client-rendered through `web.output: "single"`. Expo Router SDK 58 supplies web safe-area spacing through CSS environment insets; native screens continue to use `react-native-safe-area-context` and native scroll inset adjustment.
 
 ## Project layout
 
