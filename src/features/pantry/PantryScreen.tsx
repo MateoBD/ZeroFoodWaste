@@ -13,6 +13,8 @@ import { useTheme } from '@/theme/useTheme';
 import type { IngredientReference } from '@/features/recipes/ingredient';
 import { useIngredientCatalog } from '@/features/recipes/useIngredientCatalog';
 
+import { ExpiredItemsModal } from './ExpiredItemsModal';
+import { getExpiredPantryItems } from './expiredPantryItems';
 import { PantryEmptyState } from './PantryEmptyState';
 import { PantryHeader } from './PantryHeader';
 import { PantryItemModal, type PantryModalState } from './PantryItemModal';
@@ -66,6 +68,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     draft: PantryItemDraft;
     consumedUnits: number;
   } | null>(null);
+  const [isExpiredReviewOpen, setIsExpiredReviewOpen] = useState(false);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
   const [notificationItemId, setNotificationItemId] = useState<string | undefined>(undefined);
 
@@ -110,6 +113,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const sortedItems = useMemo(() => sortPantryItemsByExpiration(items), [items]);
+  const expiredItems = useMemo(() => getExpiredPantryItems(sortedItems), [sortedItems]);
   const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'edit');
 
   const selectedItem = modalState && 'itemId' in modalState
@@ -149,6 +153,25 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     const actionId = wasteItem(selectedItem.id);
     if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodWasted' }]);
     setModalState(null);
+  }
+
+  /**
+   * Records what happened to one expired item and closes the review once no
+   * expired items remain.
+   *
+   * @param id - The expired pantry entry the user answered for.
+   * @param outcome - Whether the user ate the food or threw it away.
+   */
+  function handleExpiredOutcome(id: string, outcome: 'consumed' | 'wasted') {
+    const item = items.find((candidate) => candidate.id === id);
+    const actionId = outcome === 'consumed'
+      ? consumeItem(id, item?.quantity ?? 1)
+      : wasteItem(id);
+    if (!actionId) return;
+    setFeedbackQueue((queue) => [
+      ...queue, { id: actionId, messageKey: outcome === 'consumed' ? 'foodConsumed' : 'foodWasted' },
+    ]);
+    if (expiredItems.every((item) => item.id === id)) setIsExpiredReviewOpen(false);
   }
 
   function handleFeedbackDismiss(reason: 'expired' | 'action') {
@@ -228,7 +251,11 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
           status === 'ready' ? PantryEmptyState : <PantryLoadState onRetry={retryLoad} status={status} />
         }
         ListHeaderComponent={
-          <PantryHeader hasSaveError={hasSaveError} />
+          <PantryHeader
+            expiredCount={status === 'ready' ? expiredItems.length : 0}
+            hasSaveError={hasSaveError}
+            onReviewExpired={() => setIsExpiredReviewOpen(true)}
+          />
         }
         renderItem={renderItem}
       />
@@ -273,6 +300,13 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         onSave={handleSave}
         onWaste={handleWaste}
         zeroConsumedUnits={pendingZeroDraft?.consumedUnits ?? selectedItem?.quantity ?? 0}
+      />
+      <ExpiredItemsModal
+        items={expiredItems}
+        visible={isExpiredReviewOpen && expiredItems.length > 0}
+        onClose={() => setIsExpiredReviewOpen(false)}
+        onConsume={(id) => handleExpiredOutcome(id, 'consumed')}
+        onWaste={(id) => handleExpiredOutcome(id, 'wasted')}
       />
     </View>
   );

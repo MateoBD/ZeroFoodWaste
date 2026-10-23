@@ -224,6 +224,21 @@ describe('BarcodeScannerScreen', () => {
     expect(screen.getByText('Camera access is needed to scan barcodes.')).toBeTruthy();
   });
 
+  it('expands the entry sheet and pauses scanning before showing ingredient help', async () => {
+    const screen = await render(<BarcodeScannerScreen />);
+
+    expect(mockSheetIndex).toBe(0);
+    expect(mockScanHandler).toBeDefined();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'About recipe ingredients' }));
+
+    expect(mockSheetIndex).toBe(1);
+    expect(mockScanHandler).toBeUndefined();
+    expect(screen.getByText(
+      'This optional link helps match your food to recipes. Choose the closest ingredient in English; it does not change the food name. You can save without one.',
+    )).toBeTruthy();
+  });
+
   it('expands and scrolls to recipe suggestions when the keyboard field is focused', async () => {
     const screen = await render(<BarcodeScannerScreen />);
     expect(mockSheetProps).toMatchObject({
