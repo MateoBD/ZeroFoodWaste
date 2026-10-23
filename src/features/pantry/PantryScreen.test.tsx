@@ -1007,4 +1007,96 @@ describe('PantryScreen', () => {
       }));
     });
   });
+
+  describe('expired food review', () => {
+    function relativeCalendarDate(dayOffset: number) {
+      const date = new Date();
+      date.setDate(date.getDate() + dayOffset);
+      return localDateToCalendarDate(date);
+    }
+
+    async function storeItems(items: { id: string; name: string; expirationDate: string }[]) {
+      await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify({
+        version: 2,
+        items: items.map((item) => ({
+          ...item, recipeIngredient: null, createdAt: '2019-12-01T10:00:00.000Z',
+        })),
+      }));
+    }
+
+    it('does not show the banner for food expiring today', async () => {
+      await storeItems([{ id: 'milk', name: 'Milk', expirationDate: relativeCalendarDate(0) }]);
+      const screen = await renderLoadedPantry();
+
+      expect(screen.getByRole('button', { name: /^Milk, Expires:/ })).toBeTruthy();
+      expect(screen.queryByTestId('expired-items-banner')).toBeNull();
+    });
+
+    it('counts expired items in the banner', async () => {
+      await storeItems([
+        { id: 'bread', name: 'Bread', expirationDate: relativeCalendarDate(-1) },
+        { id: 'eggs', name: 'Eggs', expirationDate: relativeCalendarDate(-5) },
+        { id: 'milk', name: 'Milk', expirationDate: relativeCalendarDate(0) },
+        { id: 'rice', name: 'Rice', expirationDate: '2999-10-15' },
+      ]);
+      const screen = await renderLoadedPantry();
+
+      expect(screen.getByRole('button', { name: '2 items have expired' })).toBeTruthy();
+    });
+
+    it('uses the singular and Spanish banner copy', async () => {
+      mockUseLocales.mockReturnValue([{ languageCode: 'es' }]);
+      await storeItems([{ id: 'bread', name: 'Pan', expirationDate: relativeCalendarDate(-1) }]);
+      const screen = await renderLoadedPantry('Añadir alimento');
+
+      expect(screen.getByRole('button', { name: '1 alimento ha caducado' })).toBeTruthy();
+    });
+
+    it('records each answer as consumed or wasted and removes the item from the pantry', async () => {
+      await storeItems([
+        { id: 'bread', name: 'Bread', expirationDate: relativeCalendarDate(-1) },
+        { id: 'eggs', name: 'Eggs', expirationDate: relativeCalendarDate(-5) },
+        { id: 'rice', name: 'Rice', expirationDate: '2999-10-15' },
+      ]);
+      const screen = await renderLoadedPantry();
+      await fireEvent.press(screen.getByRole('button', { name: '2 items have expired' }));
+
+      expect(screen.getByRole('header', { name: 'Expired food' })).toBeTruthy();
+      expect(screen.getByTestId('expired-item-bread')).toBeTruthy();
+      expect(screen.getByTestId('expired-item-eggs')).toBeTruthy();
+      expect(screen.queryByTestId('expired-item-rice')).toBeNull();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'I ate it: Bread' }));
+      expect(screen.queryByTestId('expired-item-bread')).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Bread, Expires:/ })).toBeNull();
+      expect(screen.getByRole('button', { name: '1 item has expired' })).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'I threw it away: Eggs' }));
+      expect(screen.queryByTestId('expired-items-modal')).toBeNull();
+      expect(screen.queryByTestId('expired-items-banner')).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Eggs, Expires:/ })).toBeNull();
+      expect(screen.getByRole('button', { name: /^Rice, Expires:/ })).toBeTruthy();
+
+      await waitFor(async () => {
+        const events = JSON.parse((await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY))!).events;
+        expect(events).toEqual([
+          expect.objectContaining({ pantryItemId: 'bread', itemName: 'Bread', outcome: 'consumed' }),
+          expect.objectContaining({ pantryItemId: 'eggs', itemName: 'Eggs', outcome: 'wasted' }),
+        ]);
+        const items = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items;
+        expect(items.map((item: { id: string }) => item.id)).toEqual(['rice']);
+      });
+    });
+
+    it('keeps expired items in the pantry when the review is closed without an answer', async () => {
+      await storeItems([{ id: 'bread', name: 'Bread', expirationDate: relativeCalendarDate(-1) }]);
+      const screen = await renderLoadedPantry();
+      await fireEvent.press(screen.getByRole('button', { name: '1 item has expired' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+
+      expect(screen.queryByTestId('expired-items-modal')).toBeNull();
+      expect(screen.getByRole('button', { name: /^Bread, Expires:/ })).toBeTruthy();
+      expect(screen.getByRole('button', { name: '1 item has expired' })).toBeTruthy();
+    });
+  });
 });

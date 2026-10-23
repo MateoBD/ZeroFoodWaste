@@ -4,17 +4,22 @@ import { AppText } from '@/components/ui/AppText';
 import { useMessages } from '@/i18n/useMessages';
 import { spacing } from '@/theme/tokens';
 
+import { ExpiredItemsBanner } from './ExpiredItemsBanner';
+
 type PantryHeaderProps = {
   hasSaveError: boolean;
+  expiredCount: number;
+  onReviewExpired: () => void;
 };
 
 /**
- * Displays the pantry heading and any device-storage save warning.
+ * Displays the pantry heading, any device-storage save warning, and the
+ * expired-food banner.
  *
- * @param props - Whether the latest device-local save failed.
+ * @param props - Save state, the expired item count, and the review callback.
  * @returns The localized pantry header.
  */
-export function PantryHeader({ hasSaveError }: PantryHeaderProps) {
+export function PantryHeader({ hasSaveError, expiredCount, onReviewExpired }: PantryHeaderProps) {
   const t = useMessages();
 
   return (
@@ -30,6 +35,7 @@ export function PantryHeader({ hasSaveError }: PantryHeaderProps) {
           {t('pantrySaveError')}
         </AppText>
       ) : null}
+      <ExpiredItemsBanner count={expiredCount} onPress={onReviewExpired} />
     </View>
   );
 }
