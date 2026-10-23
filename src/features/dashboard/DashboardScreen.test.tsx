@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { useLocales } from "expo-localization";
+import { StyleSheet } from "react-native";
 
 import { DashboardScreen } from "./DashboardScreen";
 import { PantryProvider } from "@/features/pantry/PantryContext";
@@ -83,6 +84,38 @@ describe("DashboardScreen", () => {
         .selected,
     ).toBe(true);
     expect(screen.getByText("Outcomes over time")).toBeTruthy();
+  });
+
+  it("lays out Spanish dashboard metrics responsively", async () => {
+    mockUseLocales.mockReturnValue([{ languageCode: "es" }]);
+    const screen = await render(
+      <PantryProvider>
+        <DashboardScreen />
+      </PantryProvider>,
+    );
+
+    expect(
+      await screen.findByRole("header", { name: "Resumen de desperdicio" }),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Unidades consumidas").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unidades desperdiciadas").length).toBeGreaterThan(0);
+    expect(screen.getByText("Tasa de desperdicio")).toBeTruthy();
+    expect(
+      StyleSheet.flatten(screen.getByTestId("dashboard-summary-grid").props.style),
+    ).toMatchObject({ flexDirection: "row", flexWrap: "wrap" });
+    expect(
+      StyleSheet.flatten(
+        screen.getByRole("button", { name: "Unidades consumidas: 1" }).props.style,
+      ).width,
+    ).toBe("48%");
+    expect(
+      StyleSheet.flatten(screen.getByTestId("dashboard-waste-rate-card").props.style)
+        .width,
+    ).toBe("100%");
+    expect(
+      StyleSheet.flatten(screen.getByTestId("dashboard-legend").props.style)
+        .flexWrap,
+    ).toBe("wrap");
   });
 
   it("opens the selected outcome and restores a food to the pantry", async () => {

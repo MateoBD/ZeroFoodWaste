@@ -109,7 +109,7 @@ export function DashboardScreen() {
 
       {status === "ready" ? (
         <>
-          <View style={styles.summaryGrid}>
+          <View style={styles.summaryGrid} testID="dashboard-summary-grid">
             <MetricCard
               label={t("consumedMetric")}
               value={metrics.consumed}
@@ -150,7 +150,7 @@ export function DashboardScreen() {
                 />
               ) : null}
             </View>
-            <View style={styles.legend}>
+            <View style={styles.legend} testID="dashboard-legend">
               <Legend color={colors.accent} label={t("consumedMetric")} />
               <Legend color={colors.errorText} label={t("wastedMetric")} />
             </View>
@@ -254,7 +254,9 @@ function MetricCard({
     </Surface>
   );
 
-  if (!onPress) return content;
+  if (!onPress) {
+    return <View style={styles.metricCardWide} testID="dashboard-waste-rate-card">{content}</View>;
+  }
 
   return (
     <Pressable
@@ -423,8 +425,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.xs,
   },
-  summaryGrid: { flexDirection: "row", gap: spacing.sm },
-  metricCardPressable: { flex: 1 },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  metricCardPressable: { width: "48%" },
+  metricCardWide: { width: "100%" },
   metricCard: {
     minHeight: 104,
     justifyContent: "center",
@@ -435,8 +438,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontWeight: "700" },
   ratioTrack: { height: 18, borderRadius: 9, overflow: "hidden" },
   consumedRatio: { height: "100%" },
-  legend: { flexDirection: "row", gap: spacing.lg },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  legend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: spacing.xs, flexShrink: 1 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   chartCard: { gap: spacing.md },
   chart: { gap: spacing.sm },
