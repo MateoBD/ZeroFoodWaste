@@ -7,7 +7,7 @@ import { compareRecommendations } from './ranking';
 import { scoreMatches } from './scoring';
 
 const today = new Date(2026, 9, 7, 12);
-const pantry = (id: string, name: string, expirationDate: string, canonical?: string): PantryItem => ({ id, name, expirationDate, createdAt: '', recipeIngredient: canonical ? { provider: 'themealdb', id: canonical, name: canonical } : null });
+const pantry = (id: string, name: string, expirationDate: string, canonical?: string): PantryItem => ({ id, name, expirationDate, createdAt: '', quantity: 1, recipeIngredient: canonical ? { provider: 'themealdb', id: canonical, name: canonical } : null });
 const recipe = (id: string, name: string, ingredients: string[]): RecipeDetail => ({ id, name, provider: 'themealdb', imageUrl: null, sourceUrl: null, instructions: '', ingredients: ingredients.map((ingredient) => ({ name: ingredient, measure: null })) });
 
 describe('recommendation modules', () => {

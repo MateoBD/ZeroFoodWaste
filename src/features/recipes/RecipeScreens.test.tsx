@@ -8,7 +8,10 @@ import { RecipeDetailScreen } from './RecipeDetailScreen';
 import { RecipeResultsScreen } from './RecipeResultsScreen';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => {
+  const router = { push: jest.fn() };
+  return { router, useRouter: () => router };
+});
 
 const mockUseLocales = useLocales as jest.Mock;
 
@@ -72,6 +75,7 @@ describe('recipe screens', () => {
             recipeIngredient: null,
             expirationDate: '2999-10-15',
             createdAt: '2026-09-01T10:00:00.000Z',
+            quantity: 1,
           }]}
         />
       </FavoriteRecipesProvider>,

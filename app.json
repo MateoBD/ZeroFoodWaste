@@ -22,10 +22,12 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

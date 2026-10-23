@@ -1,5 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -16,34 +16,35 @@ function recipeKey(item: RecipeSummary) {
 }
 
 /**
- * Opens the full recipe selected from the favorites list.
- *
- * @param recipe - The summary of the recipe to display.
- */
-function handleRecipePress(recipe: RecipeSummary) {
-  router.push({
-    pathname: '/recipes/[ingredient]/[mealId]' as never,
-    params: { ingredient: 'favorites', mealId: recipe.id },
-  });
-}
-
-function renderRecipe({ item }: ListRenderItemInfo<RecipeSummary>) {
-  return (
-    <View style={styles.card}>
-      <RecipeResultCard recipe={item} onPress={handleRecipePress} />
-    </View>
-  );
-}
-
-/**
  * Displays the recipes the user saved as favorites.
  *
  * @returns The favorite recipes tab screen.
  */
 export function FavoriteRecipesScreen() {
+  const router = useRouter();
   const { favorites } = useFavoriteRecipes();
   const t = useMessages();
   const { colors } = useTheme();
+
+  /**
+   * Opens the full recipe selected from the favorites list.
+   *
+   * @param recipe - The summary of the recipe to display.
+   */
+  function handleRecipePress(recipe: RecipeSummary) {
+    router.push({
+      pathname: '/recipes/[ingredient]/[mealId]' as never,
+      params: { ingredient: 'favorites', mealId: recipe.id },
+    });
+  }
+
+  function renderRecipe({ item }: ListRenderItemInfo<RecipeSummary>) {
+    return (
+      <View style={styles.card}>
+        <RecipeResultCard recipe={item} onPress={handleRecipePress} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>

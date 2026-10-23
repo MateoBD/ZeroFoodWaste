@@ -1,5 +1,5 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import { useTheme } from '@/theme/useTheme';
 import type { IngredientReference } from '@/features/recipes/ingredient';
 import { useIngredientCatalog } from '@/features/recipes/useIngredientCatalog';
 
+import { ExpiredItemsModal } from './ExpiredItemsModal';
+import { getExpiredPantryItems } from './expiredPantryItems';
 import { PantryEmptyState } from './PantryEmptyState';
 import { PantryHeader } from './PantryHeader';
 import { PantryItemModal, type PantryModalState } from './PantryItemModal';
@@ -21,7 +23,14 @@ import { PantryLoadState } from './PantryLoadState';
 import type { PantryItem } from './pantryItem';
 import { usePantry, type PantryState } from './PantryContext';
 import { sortPantryItemsByExpiration } from './sortPantryItems';
-import { usePantryItems } from './usePantryItems';
+import { usePantryItems, type PantryItemDraft } from './usePantryItems';
+import {
+  EXPIRATION_NOTIFICATION_TYPE,
+  addExpirationNotificationResponseListener,
+  getLastExpirationNotificationResponse,
+  supportsExpirationNotifications,
+  type ExpirationNotificationResponse,
+} from '@/features/notifications/expirationNotifications';
 
 function keyExtractor(item: PantryItem) {
   return item.id;
@@ -50,42 +59,67 @@ export function ConnectedPantryScreen() {
 }
 
 function PantryScreenView({ pantry }: { pantry: PantryState }) {
+  const router = useRouter();
   const {
-    items, status, hasSaveError, failedActionIds, addItem, updateItem,
+    items, status, hasSaveError, failedActionIds, updateItem,
     consumeItem, wasteItem, undoAction, finalizeAction, retryLoad,
   } = pantry;
   const [modalState, setModalState] = useState<PantryModalState>(null);
+  const [pendingZeroDraft, setPendingZeroDraft] = useState<{
+    draft: PantryItemDraft;
+    consumedUnits: number;
+  } | null>(null);
+  const [isExpiredReviewOpen, setIsExpiredReviewOpen] = useState(false);
   const [feedbackQueue, setFeedbackQueue] = useState<{ id: string; messageKey: MessageKey }[]>([]);
-  const { scannedName, manualEntry } = useLocalSearchParams<{
-    scannedName?: string;
-    manualEntry?: string;
-  }>();
-  const scanRequest = scannedName ?? (manualEntry ? 'manual-entry' : undefined);
-  const [handledScanRequest, setHandledScanRequest] = useState<string | undefined>(undefined);
-  
-  if (scanRequest !== handledScanRequest) {
-    setHandledScanRequest(scanRequest);
-    if (scanRequest) setModalState({ mode: 'add', initialName: scannedName });
-  }
-  
+  const [notificationItemId, setNotificationItemId] = useState<string | undefined>(undefined);
+
+  // Wait until pantry data is ready, then open the item referenced by a tapped
+  // expiration notification. The deferred callback avoids updating modal state
+  // during the notification-response effect itself; stale item IDs are ignored.
   useEffect(() => {
-    if (scannedName || manualEntry) {
-      router.setParams({ scannedName: undefined, manualEntry: undefined });
+    if (!supportsExpirationNotifications()) return;
+
+    /**
+     * Extracts a pantry item identifier from a notification response.
+     *
+     * @param response - The native notification response received after a tap.
+     * @returns Nothing; a valid identifier is queued for modal opening.
+     */
+    function handleNotificationResponse(response: ExpirationNotificationResponse) {
+      const data = response.notification.request.content.data;
+      if (data?.type !== EXPIRATION_NOTIFICATION_TYPE || typeof data.itemId !== 'string') return;
+      setNotificationItemId(data.itemId);
     }
-  }, [scannedName, manualEntry]);
+
+    const subscription = addExpirationNotificationResponseListener(handleNotificationResponse);
+    try {
+      const response = getLastExpirationNotificationResponse();
+      if (response) handleNotificationResponse(response);
+    } catch {
+      // Notification access can be unavailable in unsupported runtimes.
+    }
+    return () => subscription?.remove();
+  }, []);
+
+  useEffect(() => {
+    if (status !== 'ready' || !notificationItemId) return;
+    const itemId = notificationItemId;
+    const timer = setTimeout(() => {
+      if (items.some((item) => item.id === itemId)) setModalState({ mode: 'details', itemId });
+      setNotificationItemId(undefined);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [items, notificationItemId, status]);
   const t = useMessages();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const sortedItems = useMemo(() => sortPantryItemsByExpiration(items), [items]);
-  const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'add' || modalState?.mode === 'edit');
+  const expiredItems = useMemo(() => getExpiredPantryItems(sortedItems), [sortedItems]);
+  const ingredientCatalog = useIngredientCatalog(modalState?.mode === 'edit');
 
   const selectedItem = modalState && 'itemId' in modalState
     ? items.find((item) => item.id === modalState.itemId) : undefined;
   const currentFeedback = feedbackQueue[0];
-
-  function handleOpenForm(initialName?: string) {
-    setModalState({ mode: 'add', initialName });
-  }
 
   const handleOpenDetails = useCallback((itemId: string) => {
     setModalState({ mode: 'details', itemId });
@@ -95,20 +129,50 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
     if (modalState && 'itemId' in modalState) setModalState({ mode: 'edit', itemId: modalState.itemId });
   }
 
-  function handleCloseModal() { setModalState(null); }
+  function handleCloseModal() {
+    setPendingZeroDraft(null);
+    setModalState(null);
+  }
 
-  function handleConsume() {
+  function handleConsume(amount: number) {
     if (!selectedItem) return;
-    const actionId = consumeItem(selectedItem.id);
+    if (amount === 0) {
+      setModalState({ mode: 'consume', itemId: selectedItem.id });
+      return;
+    }
+    const actionId = consumeItem(selectedItem.id, amount);
     if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodConsumed' }]);
     setModalState(null);
   }
 
   function handleWaste() {
     if (!selectedItem) return;
+    if (modalState?.mode !== 'confirm-waste') {
+      setModalState({ mode: 'confirm-waste', itemId: selectedItem.id });
+      return;
+    }
     const actionId = wasteItem(selectedItem.id);
     if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodWasted' }]);
     setModalState(null);
+  }
+
+  /**
+   * Records what happened to one expired item and closes the review once no
+   * expired items remain.
+   *
+   * @param id - The expired pantry entry the user answered for.
+   * @param outcome - Whether the user ate the food or threw it away.
+   */
+  function handleExpiredOutcome(id: string, outcome: 'consumed' | 'wasted') {
+    const item = items.find((candidate) => candidate.id === id);
+    const actionId = outcome === 'consumed'
+      ? consumeItem(id, item?.quantity ?? 1)
+      : wasteItem(id);
+    if (!actionId) return;
+    setFeedbackQueue((queue) => [
+      ...queue, { id: actionId, messageKey: outcome === 'consumed' ? 'foodConsumed' : 'foodWasted' },
+    ]);
+    if (expiredItems.every((item) => item.id === id)) setIsExpiredReviewOpen(false);
   }
 
   function handleFeedbackDismiss(reason: 'expired' | 'action') {
@@ -126,14 +190,43 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
   const handleFindRecipes = useCallback((ingredient: IngredientReference) => {
     setModalState(null);
     router.push({ pathname: '/recipes/[ingredient]' as never, params: { ingredient: ingredient.name } });
-  }, []);
+  }, [router]);
 
-  function handleSave(name: string, expirationDate: string, recipeIngredient: IngredientReference | null) {
-    const draft = { name, expirationDate, recipeIngredient };
+  function handleSave(
+    name: string,
+    expirationDate: string,
+    recipeIngredient: IngredientReference | null,
+    quantity: number,
+    consumedUnits: number,
+  ) {
+    const draft = { name, expirationDate, recipeIngredient, quantity };
     if (modalState?.mode === 'edit') {
-      const actionId = updateItem(modalState.itemId, draft);
-      if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodUpdated' }]);
-    } else addItem(draft);
+      if (quantity === 0 && selectedItem) {
+        setPendingZeroDraft({
+          draft,
+          consumedUnits: consumedUnits > 0 ? consumedUnits : selectedItem.quantity,
+        });
+        setModalState({ mode: 'confirm-zero', itemId: modalState.itemId });
+        return;
+      }
+      const actionId = updateItem(modalState.itemId, draft, consumedUnits);
+      if (actionId) setFeedbackQueue((queue) => [...queue, {
+        id: actionId,
+        messageKey: consumedUnits > 0 ? 'foodConsumed' : 'foodUpdated',
+      }]);
+    }
+    setModalState(null);
+  }
+
+  function handleConfirmZero() {
+    if (!selectedItem || !pendingZeroDraft) return;
+    const actionId = updateItem(
+      selectedItem.id,
+      pendingZeroDraft.draft,
+      pendingZeroDraft.consumedUnits,
+    );
+    if (actionId) setFeedbackQueue((queue) => [...queue, { id: actionId, messageKey: 'foodConsumed' }]);
+    setPendingZeroDraft(null);
     setModalState(null);
   }
 
@@ -142,6 +235,7 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
       expirationDate={item.expirationDate}
       id={item.id}
       name={item.name}
+      quantity={item.quantity}
       onOpen={handleOpenDetails}
     />
   ), [handleOpenDetails]);
@@ -158,7 +252,11 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
           status === 'ready' ? PantryEmptyState : <PantryLoadState onRetry={retryLoad} status={status} />
         }
         ListHeaderComponent={
-          <PantryHeader hasSaveError={hasSaveError} />
+          <PantryHeader
+            expiredCount={status === 'ready' ? expiredItems.length : 0}
+            hasSaveError={hasSaveError}
+            onReviewExpired={() => setIsExpiredReviewOpen(true)}
+          />
         }
         renderItem={renderItem}
       />
@@ -166,7 +264,8 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         <Pressable
           accessibilityLabel={t('addFood')}
           accessibilityRole="button"
-          onPress={() => handleOpenForm()}
+          nativeID={currentFeedback ? 'safe-area-floating-feedback' : 'safe-area-floating'}
+          onPress={() => router.push('/scan-barcode')}
           style={[
             styles.addButton,
             {
@@ -178,26 +277,6 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         >
           <AppText accessible={false} style={[styles.addButtonText, { color: colors.accentText }]}>
             +
-          </AppText>
-        </Pressable>
-      ) : null}
-      {status === 'ready' ? (
-        <Pressable
-          accessibilityLabel={t('scanBarcode')}
-          accessibilityRole="button"
-          onPress={() => router.push('/scan-barcode')}
-          style={[
-            styles.addButton,
-            styles.scanButton,
-            {
-              backgroundColor: colors.accent,
-              bottom: insets.bottom + (currentFeedback ? 152 : 76) + spacing.md,
-              right: insets.right + spacing.md,
-            },
-          ]}
-        >
-          <AppText accessible={false} style={[styles.addButtonText, { color: colors.accentText }]}>
-            📷
           </AppText>
         </Pressable>
       ) : null}
@@ -217,10 +296,19 @@ function PantryScreenView({ pantry }: { pantry: PantryState }) {
         ingredientCatalogStatus={ingredientCatalog.status}
         onClose={handleCloseModal}
         onConsume={handleConsume}
+        onConfirmZero={handleConfirmZero}
         onEdit={handleEdit}
         onFindRecipes={handleFindRecipes}
         onSave={handleSave}
         onWaste={handleWaste}
+        zeroConsumedUnits={pendingZeroDraft?.consumedUnits ?? selectedItem?.quantity ?? 0}
+      />
+      <ExpiredItemsModal
+        items={expiredItems}
+        visible={isExpiredReviewOpen && expiredItems.length > 0}
+        onClose={() => setIsExpiredReviewOpen(false)}
+        onConsume={(id) => handleExpiredOutcome(id, 'consumed')}
+        onWaste={(id) => handleExpiredOutcome(id, 'wasted')}
       />
     </View>
   );
@@ -241,6 +329,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.24)',
   },
-  scanButton: {},
   addButtonText: { fontSize: 32, lineHeight: 36, fontWeight: '400' },
 });

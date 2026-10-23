@@ -1,6 +1,6 @@
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +46,7 @@ function IngredientSeparator() {
  * @returns The recipe suggestions tab screen.
  */
 export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestionsScreenProps) {
+  const router = useRouter();
   const pantry = usePantry();
   const [query, setQuery] = useState(initialIngredient ?? '');
   const [selectedIngredient, setSelectedIngredient] = useState(initialIngredient ?? '');
@@ -79,7 +80,7 @@ export function RecipeSuggestionsScreen({ initialIngredient }: RecipeSuggestions
       pathname: '/recipes/[ingredient]/[mealId]' as never,
       params: { ingredient: ingredientName, mealId: recipeId },
     });
-  }, []);
+  }, [router]);
 
   const handleIngredientSelect = useCallback((ingredient: string) => {
     if (ingredient === activeSelection) {

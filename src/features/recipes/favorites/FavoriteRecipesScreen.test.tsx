@@ -8,7 +8,10 @@ import { FavoriteRecipesScreen } from './FavoriteRecipesScreen';
 import { FAVORITE_RECIPES_STORAGE_KEY, parseFavoriteRecipes } from './favoriteRecipeStorage';
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => {
+  const router = { push: jest.fn() };
+  return { router, useRouter: () => router };
+});
 jest.mock('@shopify/flash-list', () => ({
   FlashList: jest.requireActual('react-native').FlatList,
 }));

@@ -2,29 +2,68 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useLocales } from 'expo-localization';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput } from 'react-native';
 
-import { PantryScreen } from './PantryScreen';
+import { BarcodeScannerScreen } from './BarcodeScannerScreen';
+import { PantryProvider } from './PantryContext';
+import { ConnectedPantryScreen } from './PantryScreen';
 import { calendarDateToLocalDate, localDateToCalendarDate } from './calendarDate';
-import { PANTRY_EVENT_STORAGE_KEY } from './pantryEventRepository';
 import { PANTRY_STORAGE_KEY } from './pantryRepository';
-import { colors } from '@/theme/tokens';
+
+let mockNavigate: (route: 'pantry' | 'scanner') => void = () => undefined;
 
 jest.mock('expo-localization', () => ({ useLocales: jest.fn() }));
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), setParams: jest.fn() },
-  useLocalSearchParams: () => ({}),
+jest.mock('expo-router', () => {
+  const router = {
+    push: jest.fn((path: string | { pathname: string }) => {
+      if (path === '/scan-barcode') mockNavigate('scanner');
+    }),
+    back: jest.fn(() => mockNavigate('pantry')),
+  };
+  return { router, useRouter: () => router };
+});
+jest.mock('expo-camera', () => ({
+  CameraView: () => null,
+  useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],
 }));
+jest.mock('@gorhom/bottom-sheet', () => {
+  const React = jest.requireActual('react');
+  const { ScrollView, TextInput, View } = jest.requireActual('react-native');
+  return {
+    __esModule: true,
+    default: function MockBottomSheet({ children, onChange, ref }: { children: React.ReactNode; onChange?: (index: number) => void; ref?: React.Ref<unknown> }) {
+      React.useImperativeHandle(ref, () => ({ snapToIndex: (index: number) => onChange?.(index) }));
+      return <View>{children}</View>;
+    },
+    BottomSheetScrollView: ScrollView,
+    BottomSheetTextInput: TextInput,
+    useBottomSheetTimingConfigs: (config: unknown) => config,
+  };
+});
 jest.mock('@shopify/flash-list', () => ({
   FlashList: jest.requireActual('react-native').FlatList,
 }));
 
 const mockUseLocales = useLocales as jest.Mock;
 
+function PantryTestApp() {
+  const [route, setRoute] = useState<'pantry' | 'scanner'>('pantry');
+  useEffect(() => {
+    mockNavigate = setRoute;
+    return () => { mockNavigate = () => undefined; };
+  }, []);
+  return (
+    <PantryProvider>
+      {route === 'pantry' ? <ConnectedPantryScreen /> : <BarcodeScannerScreen />}
+    </PantryProvider>
+  );
+}
+
 // Renders the screen and waits until stored items have loaded and adding is
 // available.
 async function renderLoadedPantry(addLabel = 'Add food') {
-  const screen = await render(<PantryScreen />);
+  const screen = await render(<PantryTestApp />);
   await screen.findByRole('button', { name: addLabel });
   return screen;
 }
@@ -126,9 +165,7 @@ describe('PantryScreen', () => {
 
     expect(screen.getByText('+')).toBeTruthy();
     await fireEvent.press(addButton);
-    const modal = screen.getByTestId('pantry-item-form-modal');
-    expect(modal.props.presentationStyle).toBe('formSheet');
-    expect(modal.props.allowSwipeDismissal).toBe(true);
+    expect(screen.getByText('Scan a barcode or slide up to enter food manually.')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
@@ -141,7 +178,7 @@ describe('PantryScreen', () => {
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' });
     await fireEvent.press(cancelButton);
-    expect(screen.queryByTestId('pantry-item-form-modal')).toBeNull();
+    expect(screen.queryByLabelText('Food name')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
 
     expect(screen.getByLabelText('Food name').props.value).toBe('');
@@ -154,7 +191,7 @@ describe('PantryScreen', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'Bread');
-    await fireEvent(screen.getByTestId('pantry-item-form-modal'), 'requestClose');
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 
     expect(screen.queryByLabelText('Food name')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
@@ -245,8 +282,8 @@ describe('PantryScreen', () => {
 
     expect(screen.getByTestId('expiration-badge-fresh')).toBeTruthy();
     expect(screen.getByText(/days left$/)).toBeTruthy();
-    expect(screen.getByLabelText('Rice, Expires: 2999-10-15, Fresh')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Rice, Expires: 2999-10-15, Fresh' })).toBeTruthy();
+    expect(screen.getByLabelText('Rice, Expires: 2999-10-15, Fresh, Quantity (units): 1')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rice, Expires: 2999-10-15, Fresh, Quantity (units): 1' })).toBeTruthy();
   });
 
   it('lists food with the closest expiration date first, including newly added food', async () => {
@@ -269,14 +306,37 @@ describe('PantryScreen', () => {
 
     expect(screen.getByTestId('pantry-item-details-modal')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Banana' })).toBeTruthy();
-    expect(screen.getByText('No recipe ingredient linked. Edit the name to find a match.')).toBeTruthy();
+    expect(screen.getByText('No recipe ingredient linked. Edit this food to choose one.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit food' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mark consumed' })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('pantry-item-details-modal')).toBeNull();
   });
 
-  it('suggests an English ingredient and persists its TheMealDB reference', async () => {
+  it('explains the optional recipe ingredient link on demand', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+
+    const helpButton = screen.getByRole('button', { name: 'About recipe ingredients' });
+    expect(helpButton.props.accessibilityState).toEqual({ expanded: false });
+    expect(screen.queryByText(/This optional link helps match your food to recipes/)).toBeNull();
+
+    await fireEvent.press(helpButton);
+
+    expect(screen.getByText(
+      'This optional link helps match your food to recipes. Choose the closest ingredient in English; it does not change the food name. You can save without one.',
+    )).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'About recipe ingredients' }).props.accessibilityState)
+      .toEqual({ expanded: true });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'About recipe ingredients' }));
+
+    expect(screen.queryByText(/This optional link helps match your food to recipes/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'About recipe ingredients' }).props.accessibilityState)
+      .toEqual({ expanded: false });
+  });
+
+  it('keeps the food name plain while linking a separately searched ingredient', async () => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
       { id: '1', name: 'Chicken' },
       { id: '2', name: 'Chicken Stock' },
@@ -285,27 +345,18 @@ describe('PantryScreen', () => {
     const screen = await renderLoadedPantry();
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'chick');
-
-    expect(await screen.findByLabelText('Ingredient suggestions')).toBeTruthy();
-    const suggestion = screen.getByRole('button', { name: 'Chicken' });
-    expect(suggestion.props.accessibilityRole).toBe('button');
-    const highlights = screen.getAllByText('Chick');
-    expect(highlights).toHaveLength(2);
-    highlights.forEach((highlight) => {
-      expect(StyleSheet.flatten(highlight.props.style)).toMatchObject({
-        color: colors.light.accent,
-        fontWeight: '700',
-      });
-    });
-
-    await fireEvent.press(suggestion);
-    expect(screen.getByLabelText('Food name').props.value).toBe('Chicken');
+    expect(screen.queryByLabelText('Ingredient suggestions')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Chicken' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Choose a recipe ingredient'), 'chick');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Recipe ingredient: Chicken' }));
+    expect(screen.getByLabelText('Food name').props.value).toBe('chick');
     expect(screen.getByText('Recipe ingredient: Chicken')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(async () => {
       const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
+      expect(stored.name).toBe('chick');
       expect(stored.recipeIngredient).toEqual({ provider: 'themealdb', id: '1', name: 'Chicken' });
     });
   });
@@ -320,7 +371,7 @@ describe('PantryScreen', () => {
     const screen = await renderLoadedPantry();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
-    await fireEvent.changeText(screen.getByLabelText('Food name'), 'ch');
+    await fireEvent.changeText(screen.getByLabelText('Choose a recipe ingredient'), 'ch');
 
     expect(await screen.findByText('Loading ingredient suggestions…')).toBeTruthy();
     await act(async () => resolveFetch(ingredientCatalogueResponse([])));
@@ -334,9 +385,7 @@ describe('PantryScreen', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
     await fireEvent.changeText(screen.getByLabelText('Food name'), 'Zucchini');
-    expect(await screen.findByText(
-      'No ingredient match found. You can still save this food.',
-    )).toBeTruthy();
+    expect(screen.queryByLabelText('Ingredient suggestions')).toBeNull();
     await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
@@ -395,7 +444,7 @@ describe('PantryScreen', () => {
     });
   });
 
-  it('clears the TheMealDB reference when an edited name changes', async () => {
+  it('preserves the independent recipe ingredient when an edited name changes', async () => {
     await storeLinkedChicken();
 
     const screen = await renderLoadedPantry();
@@ -405,11 +454,11 @@ describe('PantryScreen', () => {
 
     await waitFor(async () => {
       const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
-      expect(stored.recipeIngredient).toBeNull();
+      expect(stored.recipeIngredient).toEqual({ provider: 'themealdb', id: '1', name: 'Chicken' });
     });
   });
 
-  it('replaces a linked ingredient after the edited name selects a new suggestion', async () => {
+  it('replaces a linked ingredient through the recipe field without changing the edited name', async () => {
     await storeLinkedChicken();
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
       { id: '1', name: 'Chicken' },
@@ -418,21 +467,23 @@ describe('PantryScreen', () => {
     const screen = await renderLoadedPantry();
 
     await openEdit(screen, 'Chicken');
-    await fireEvent.changeText(screen.getByLabelText('Food name'), 'mi');
-    await fireEvent.press(await screen.findByRole('button', { name: 'Milk' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Chicken soup');
+    expect(screen.queryByRole('button', { name: 'Milk' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Choose a recipe ingredient'), 'mi');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Recipe ingredient: Milk' }));
     expect(screen.getByText('Recipe ingredient: Milk')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(async () => {
       const stored = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items[0];
       expect(stored).toMatchObject({
-        name: 'Milk',
+        name: 'Chicken soup',
         recipeIngredient: { provider: 'themealdb', id: '2', name: 'Milk' },
       });
     });
   });
 
-  it('shows matching suggestions only while the saved food name is active', async () => {
+  it('shows matches when the recipe ingredient field is active', async () => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(ingredientCatalogueResponse([
       { id: '1', name: 'Banana' },
     ]));
@@ -440,11 +491,12 @@ describe('PantryScreen', () => {
     await addFood(screen, 'Banana', '2999-10-15');
     await openEdit(screen, 'Banana');
 
-    expect(screen.getByText('No recipe ingredient linked. Tap the food name to see suggestions.')).toBeTruthy();
+    expect(screen.getByText('No recipe ingredient linked. Search above to choose one.')).toBeTruthy();
     expect(screen.queryByLabelText('Ingredient suggestions')).toBeNull();
     await fireEvent(screen.getByLabelText('Food name'), 'focus');
-    expect(await screen.findByRole('button', { name: 'Banana' })).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Banana' }));
+    expect(screen.queryByRole('button', { name: 'Banana' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Choose a recipe ingredient'), 'ban');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Recipe ingredient: Banana' }));
     expect(screen.queryByLabelText('Ingredient suggestions')).toBeNull();
     expect(screen.getByText('Recipe ingredient: Banana')).toBeTruthy();
   });
@@ -695,13 +747,46 @@ describe('PantryScreen', () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toHaveLength(2);
     });
     await firstSession.unmount();
-
     const secondSession = await renderLoadedPantry();
 
     expect(secondSession.getByText('Bread')).toBeTruthy();
     expect(secondSession.getByText('Expires: 2999-10-10')).toBeTruthy();
     expect(secondSession.getByText('Milk')).toBeTruthy();
     expect(secondSession.getByText('Expires: 2999-10-12')).toBeTruthy();
+  });
+
+  it('does not reuse an outcome ID after the app restarts', async () => {
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify({
+      version: 4,
+      items: [{
+        id: 'bread',
+        name: 'Bread',
+        recipeIngredient: null,
+        expirationDate: '2999-10-10',
+        createdAt: '2026-09-01T10:00:00.000Z',
+        quantity: 1,
+      }],
+      events: [{
+        id: 'pantry-action-1',
+        pantryItemId: 'milk',
+        itemName: 'Milk',
+        outcome: 'consumed',
+        amount: 1,
+        occurredAt: '2026-09-02T10:00:00.000Z',
+      }],
+    }));
+    const screen = await renderLoadedPantry();
+
+    await openDetails(screen, 'Bread');
+    await fireEvent.press(screen.getByRole('button', { name: 'Mark consumed' }));
+
+    await waitFor(async () => {
+      const document = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!);
+      expect(document.events.map((event: { id: string }) => event.id)).toEqual([
+        'pantry-action-1',
+        'pantry-action-2',
+      ]);
+    });
   });
 
   it('saves rapid additions in order, even when the first write is delayed', async () => {
@@ -745,7 +830,7 @@ describe('PantryScreen', () => {
     );
     jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('disk unavailable'));
 
-    const screen = await render(<PantryScreen />);
+    const screen = await render(<PantryTestApp />);
 
     expect(await screen.findByText('Your pantry could not be loaded.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add food' })).toBeNull();
@@ -763,7 +848,7 @@ describe('PantryScreen', () => {
       () => new Promise((resolve) => { finishLoad = resolve; }),
     );
 
-    const screen = await render(<PantryScreen />);
+    const screen = await render(<PantryTestApp />);
 
     expect(screen.getByText('Loading your pantry…')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add food' })).toBeNull();
@@ -775,7 +860,7 @@ describe('PantryScreen', () => {
   it('keeps damaged storage unchanged and blocks additions during load errors', async () => {
     const damaged = '{bad json';
     await AsyncStorage.setItem(PANTRY_STORAGE_KEY, damaged);
-    const screen = await render(<PantryScreen />);
+    const screen = await render(<PantryTestApp />);
 
     expect(await screen.findByText('Your pantry could not be loaded.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add food' })).toBeNull();
@@ -818,7 +903,7 @@ describe('PantryScreen', () => {
   it('removes an item and remembers the removal after reopening', async () => {
   const screen = await renderLoadedPantry();
 
-  await addFood(screen, 'Bread', '2026-10-10');
+  await addFood(screen, 'Bread', localDateToCalendarDate(new Date()));
 
   await openDetails(screen, 'Bread');
   await fireEvent.press(screen.getByRole('button', { name: 'Mark consumed' }));
@@ -841,9 +926,9 @@ describe('PantryScreen', () => {
 
   it('undoes consumption and restores the item at its original position', async () => {
     const screen = await renderLoadedPantry();
-    await addFood(screen, 'Bread', '2999-10-10');
-    await addFood(screen, 'Milk', '2999-10-11');
-    await addFood(screen, 'Rice', '2999-10-12');
+    await addFood(screen, 'Bread', '2026-12-12');
+    await addFood(screen, 'Milk', '2026-12-13');
+    await addFood(screen, 'Rice', '2026-12-14');
     await waitFor(async () => {
       expect(JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items).toHaveLength(3);
     });
@@ -862,24 +947,225 @@ describe('PantryScreen', () => {
 
   it('records thrown-away food and removes the event when undone', async () => {
     const screen = await renderLoadedPantry();
-    await addFood(screen, 'Yogurt', '2999-10-10');
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Yogurt');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '3');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2026-12-12');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await openDetails(screen, 'Yogurt');
     await fireEvent.press(screen.getByRole('button', { name: 'Mark thrown away' }));
+    expect(screen.getByRole('header', { name: 'Record all remaining units as wasted?' })).toBeTruthy();
+    expect(screen.getByText('All 3 remaining units will be recorded as wasted.')).toBeTruthy();
+    expect(screen.queryByText('Remove without history')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Waste 3 units' }));
 
     expect(screen.getByText('Food marked thrown away')).toBeTruthy();
     await waitFor(async () => {
-      const raw = await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
       expect(JSON.parse(raw!).events).toEqual([
-        expect.objectContaining({ itemName: 'Yogurt', outcome: 'wasted' }),
+        expect.objectContaining({ itemName: 'Yogurt', outcome: 'wasted', amount: 3 }),
       ]);
     });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(async () => {
-      const raw = await AsyncStorage.getItem(PANTRY_EVENT_STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
       expect(JSON.parse(raw!).events).toEqual([]);
     });
-    expect(screen.getByRole('button', { name: /^Yogurt, Expires:/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Yogurt, Expires:.*Quantity \(units\): 3/ })).toBeTruthy();
+  });
+
+  it('keeps quantity controls in Edit and treats typing as an unreported correction', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    expect(screen.queryByRole('button', { name: 'Consume one unit' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '0');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('alert', { name: 'Enter a whole number of at least 1.' })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '3');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 3/ })).toBeTruthy();
+    await openEdit(screen, 'Rice');
+    expect(screen.getByText('Typing a number corrects the count without changing reports.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Consume one unit' }));
+    expect(screen.getByText('Saving will record 1 unit consumed.')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '5');
+    expect(screen.queryByText(/Saving will record/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+      expect(JSON.parse(raw!).items[0].quantity).toBe(5);
+      expect(JSON.parse(raw!).events).toEqual([]);
+    });
+  });
+
+  it('records net Edit stepper decreases after additions offset earlier decreases', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '5');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await openEdit(screen, 'Rice');
+    await fireEvent.press(screen.getByRole('button', { name: 'Consume one unit' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Consume one unit' }));
+    expect(screen.getByText('Saving will record 2 units consumed.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add one unit' }));
+    expect(screen.getByText('Saving will record 1 unit consumed.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 4/ })).toBeTruthy();
+    await waitFor(async () => {
+      const document = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!);
+      expect(document.events).toEqual([expect.objectContaining({ outcome: 'consumed', amount: 1 })]);
+    });
+  });
+
+  it('chooses a partial consumed amount and Undo returns only that event amount', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '5');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await openDetails(screen, 'Rice');
+    await fireEvent.press(screen.getByRole('button', { name: 'Mark consumed' }));
+    expect(screen.getByText('1 consumed · 4 remaining')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Consume one more unit' }));
+    expect(screen.getByText('2 consumed · 3 remaining')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Consume 2 units' }));
+    expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 3/ })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Rice, Expires:.*Quantity \(units\): 5/ })).toBeTruthy());
+  });
+
+  it('asks before an Edit saves zero and Cancel records nothing', async () => {
+    const screen = await renderLoadedPantry();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add food' }));
+    await fireEvent.changeText(screen.getByLabelText('Food name'), 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '2');
+    await fireEvent.changeText(screen.getByLabelText('Expiration date'), '2999-10-15');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await openEdit(screen, 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '0');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('header', { name: 'Record all saved units as consumed?' })).toBeTruthy();
+    expect(screen.getByText('Saving will record all 2 units as consumed.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(async () => {
+      const document = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!);
+      expect(document.items[0].quantity).toBe(2);
+      expect(document.events).toEqual([]);
+    });
+
+    await openEdit(screen, 'Rice');
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '-1');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('alert', { name: 'Enter a whole number of 0 or more.' })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Quantity (units)'), '0');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Consume all 2 units' }));
+    await waitFor(async () => {
+      const document = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!);
+      expect(document.items).toEqual([]);
+      expect(document.events).toEqual([
+        expect.objectContaining({ outcome: 'consumed', amount: 2 }),
+      ]);
+    });
+  });
+
+  describe('expired food review', () => {
+    function relativeCalendarDate(dayOffset: number) {
+      const date = new Date();
+      date.setDate(date.getDate() + dayOffset);
+      return localDateToCalendarDate(date);
+    }
+
+    async function storeItems(items: { id: string; name: string; expirationDate: string }[]) {
+      await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify({
+        version: 2,
+        items: items.map((item) => ({
+          ...item, recipeIngredient: null, createdAt: '2019-12-01T10:00:00.000Z',
+        })),
+      }));
+    }
+
+    it('does not show the banner for food expiring today', async () => {
+      await storeItems([{ id: 'milk', name: 'Milk', expirationDate: relativeCalendarDate(0) }]);
+      const screen = await renderLoadedPantry();
+
+      expect(screen.getByRole('button', { name: /^Milk, Expires:/ })).toBeTruthy();
+      expect(screen.queryByTestId('expired-items-banner')).toBeNull();
+    });
+
+    it('counts expired items in the banner', async () => {
+      await storeItems([
+        { id: 'bread', name: 'Bread', expirationDate: relativeCalendarDate(-1) },
+        { id: 'eggs', name: 'Eggs', expirationDate: relativeCalendarDate(-5) },
+        { id: 'milk', name: 'Milk', expirationDate: relativeCalendarDate(0) },
+        { id: 'rice', name: 'Rice', expirationDate: '2999-10-15' },
+      ]);
+      const screen = await renderLoadedPantry();
+
+      expect(screen.getByRole('button', { name: '2 items have expired' })).toBeTruthy();
+    });
+
+    it('uses the singular and Spanish banner copy', async () => {
+      mockUseLocales.mockReturnValue([{ languageCode: 'es' }]);
+      await storeItems([{ id: 'bread', name: 'Pan', expirationDate: relativeCalendarDate(-1) }]);
+      const screen = await renderLoadedPantry('Añadir alimento');
+
+      expect(screen.getByRole('button', { name: '1 alimento ha caducado' })).toBeTruthy();
+    });
+
+    it('records each answer as consumed or wasted and removes the item from the pantry', async () => {
+      await storeItems([
+        { id: 'bread', name: 'Bread', expirationDate: relativeCalendarDate(-1) },
+        { id: 'eggs', name: 'Eggs', expirationDate: relativeCalendarDate(-5) },
+        { id: 'rice', name: 'Rice', expirationDate: '2999-10-15' },
+      ]);
+      const screen = await renderLoadedPantry();
+      await fireEvent.press(screen.getByRole('button', { name: '2 items have expired' }));
+
+      expect(screen.getByRole('header', { name: 'Expired food' })).toBeTruthy();
+      expect(screen.getByTestId('expired-item-bread')).toBeTruthy();
+      expect(screen.getByTestId('expired-item-eggs')).toBeTruthy();
+      expect(screen.queryByTestId('expired-item-rice')).toBeNull();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'I ate it: Bread' }));
+      expect(screen.queryByTestId('expired-item-bread')).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Bread, Expires:/ })).toBeNull();
+      expect(screen.getByRole('button', { name: '1 item has expired' })).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'I threw it away: Eggs' }));
+      expect(screen.queryByTestId('expired-items-modal')).toBeNull();
+      expect(screen.queryByTestId('expired-items-banner')).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Eggs, Expires:/ })).toBeNull();
+      expect(screen.getByRole('button', { name: /^Rice, Expires:/ })).toBeTruthy();
+
+      await waitFor(async () => {
+        const events = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).events;
+        expect(events).toEqual([
+          expect.objectContaining({ pantryItemId: 'bread', itemName: 'Bread', outcome: 'consumed' }),
+          expect.objectContaining({ pantryItemId: 'eggs', itemName: 'Eggs', outcome: 'wasted' }),
+        ]);
+        const items = JSON.parse((await AsyncStorage.getItem(PANTRY_STORAGE_KEY))!).items;
+        expect(items.map((item: { id: string }) => item.id)).toEqual(['rice']);
+      });
+    });
+
+    it('keeps expired items in the pantry when the review is closed without an answer', async () => {
+      await storeItems([{ id: 'bread', name: 'Bread', expirationDate: relativeCalendarDate(-1) }]);
+      const screen = await renderLoadedPantry();
+      await fireEvent.press(screen.getByRole('button', { name: '1 item has expired' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+
+      expect(screen.queryByTestId('expired-items-modal')).toBeNull();
+      expect(screen.getByRole('button', { name: /^Bread, Expires:/ })).toBeTruthy();
+      expect(screen.getByRole('button', { name: '1 item has expired' })).toBeTruthy();
+    });
   });
 });

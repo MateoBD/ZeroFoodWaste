@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -22,6 +22,7 @@ type RecipeResultsScreenProps = {
  * @returns The recipe-search screen.
  */
 export function RecipeResultsScreen({ ingredient }: RecipeResultsScreenProps) {
+  const router = useRouter();
   const { items, status } = useRecipeSearch(ingredient);
   const t = useMessages();
   const { colors } = useTheme();

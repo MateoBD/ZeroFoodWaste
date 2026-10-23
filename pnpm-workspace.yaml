@@ -1,2 +1,5 @@
 allowBuilds:
+  '@parcel/watcher': true
   unrs-resolver: true
+patchedDependencies:
+  '@gorhom/bottom-sheet@5.2.14': patches/@gorhom__bottom-sheet@5.2.14.patch

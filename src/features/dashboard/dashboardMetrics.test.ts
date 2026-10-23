@@ -10,6 +10,7 @@ const events: PantryEvent[] = [
     pantryItemId: "bread",
     itemName: "Bread",
     outcome: "consumed",
+    amount: 2,
     occurredAt: "2026-10-06T09:00:00.000Z",
   },
   {
@@ -17,6 +18,7 @@ const events: PantryEvent[] = [
     pantryItemId: "milk",
     itemName: "Milk",
     outcome: "wasted",
+    amount: 3,
     occurredAt: "2026-10-05T09:00:00.000Z",
   },
   {
@@ -24,6 +26,7 @@ const events: PantryEvent[] = [
     pantryItemId: "rice",
     itemName: "Rice",
     outcome: "consumed",
+    amount: 4,
     occurredAt: "2026-09-01T09:00:00.000Z",
   },
 ];
@@ -35,10 +38,10 @@ describe("calculateDashboardMetrics", () => {
     const metrics = calculateDashboardMetrics(events, "weekly", now);
 
     expect(metrics).toMatchObject({
-      consumed: 1,
-      wasted: 1,
-      total: 2,
-      wastePercentage: 50,
+      consumed: 2,
+      wasted: 3,
+      total: 5,
+      wastePercentage: 60,
     });
     expect(metrics.periods).toHaveLength(7);
     expect(
@@ -46,29 +49,29 @@ describe("calculateDashboardMetrics", () => {
         (count, period) => count + period.consumed + period.wasted,
         0,
       ),
-    ).toBe(2);
+    ).toBe(5);
   });
 
   it("groups the last thirty days into five monthly chart buckets", () => {
     const metrics = calculateDashboardMetrics(events, "monthly", now);
 
-    expect(metrics).toMatchObject({ consumed: 1, wasted: 1, total: 2 });
+    expect(metrics).toMatchObject({ consumed: 2, wasted: 3, total: 5 });
     expect(metrics.periods).toHaveLength(5);
     expect(
       metrics.periods.reduce(
         (count, period) => count + period.consumed + period.wasted,
         0,
       ),
-    ).toBe(2);
+    ).toBe(5);
   });
 
   it("includes every event in the all-time view", () => {
     const metrics = calculateDashboardMetrics(events, "all-time", now);
 
     expect(metrics).toMatchObject({
-      consumed: 2,
-      wasted: 1,
-      total: 3,
+      consumed: 6,
+      wasted: 3,
+      total: 9,
       wastePercentage: 33,
     });
     expect(metrics.periods).toHaveLength(2);

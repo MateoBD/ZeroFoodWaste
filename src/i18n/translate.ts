@@ -1,6 +1,6 @@
 import { I18n } from 'i18n-js';
 
-import { en, es, type MessageKey } from './messages';
+import { en, es, it, type MessageKey } from './messages';
 
 /**
  * Creates a typed translator with English fallback for the requested locale.
@@ -9,9 +9,10 @@ import { en, es, type MessageKey } from './messages';
  * @returns A function that translates one known message key.
  */
 export function createTranslator(languageCode: string | null | undefined) {
-  const i18n = new I18n({ en, es });
+  const i18n = new I18n({ en, es, it });
   i18n.defaultLocale = 'en';
   i18n.enableFallback = true;
   i18n.locale = languageCode ?? 'en';
-  return (key: MessageKey): string => i18n.t(key);
+  return (key: MessageKey, options?: Readonly<Record<string, string | number>>): string =>
+    i18n.t(key, options);
 }

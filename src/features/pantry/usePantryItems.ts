@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { createPantryItem, type PantryItem } from './pantryItem';
+import { createPantryItem, isValidPantryQuantity, type PantryItem } from './pantryItem';
 import { asyncStoragePantryRepository, type PantryRepository } from './pantryRepository';
-import {
-  asyncStoragePantryEventRepository,
-  type PantryEventRepository,
-} from './pantryEventRepository';
 import type { PantryEvent, PantryEventOutcome } from './pantryEvent';
 import type { IngredientReference } from '@/features/recipes/ingredient';
 import { compactPantryActions, replayPantryActions, type PantryAction } from './pantryActionJournal';
@@ -22,6 +18,7 @@ export type PantryItemDraft = Readonly<{
   name: string;
   expirationDate: string;
   recipeIngredient: IngredientReference | null;
+  quantity: number;
 }>;
 
 /**
@@ -31,12 +28,10 @@ export type PantryItemDraft = Readonly<{
  * A load failure blocks edits; a failed save leaves the local item visible and sets hasSaveError.
  *
  * @param repository - The pantry storage implementation. Defaults to AsyncStorage.
- * @param eventRepository - The outcome-history storage implementation. Defaults to AsyncStorage.
  * @returns Pantry data, state flags, and actions for loading, changing, and undoing items.
  */
 export function usePantryItems(
   repository: PantryRepository = asyncStoragePantryRepository,
-  eventRepository: PantryEventRepository = asyncStoragePantryEventRepository,
 ) {
   const [items, setItems] = useState<PantryItem[]>([]);
   const [events, setEvents] = useState<PantryEvent[]>([]);
@@ -56,7 +51,6 @@ export function usePantryItems(
     nextItems: PantryItem[],
     nextEvents: PantryEvent[],
     actionId: string,
-    shouldSaveEvents = false,
   ) {
     itemsRef.current = nextItems;
     eventsRef.current = nextEvents;
@@ -64,8 +58,7 @@ export function usePantryItems(
     setEvents(nextEvents);
     writeQueue.current = writeQueue.current
       .then(async () => {
-        await repository.saveItems(nextItems);
-        if (shouldSaveEvents) await eventRepository.saveEvents(nextEvents);
+        await repository.save({ items: nextItems, events: nextEvents });
       })
       .then(
         () => {
@@ -79,9 +72,22 @@ export function usePantryItems(
       );
   }
 
+  /**
+   * Produces an action ID that cannot collide with restored history from an
+   * earlier app session or with another pending action in this session.
+   *
+   * @returns A unique action identifier for journaling and outcome history.
+   */
   function nextActionId() {
-    actionSequence.current += 1;
-    return `pantry-action-${actionSequence.current}`;
+    let candidate: string;
+    do {
+      actionSequence.current += 1;
+      candidate = `pantry-action-${actionSequence.current}`;
+    } while (
+      eventsRef.current.some((event) => event.id === candidate) ||
+      actionsRef.current.some((action) => action.id === candidate)
+    );
+    return candidate;
   }
 
   function compactActions() {
@@ -93,8 +99,8 @@ export function usePantryItems(
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([repository.loadItems(), eventRepository.loadEvents()]).then(
-      ([loadedItems, loadedEvents]) => {
+    repository.load().then(
+      ({ items: loadedItems, events: loadedEvents }) => {
         if (isActive) {
           itemsRef.current = loadedItems;
           eventsRef.current = loadedEvents;
@@ -117,7 +123,7 @@ export function usePantryItems(
     return () => {
       isActive = false;
     };
-  }, [eventRepository, repository, loadAttempt]);
+  }, [repository, loadAttempt]);
 
   function retryLoad() {
     statusRef.current = 'loading';
@@ -128,10 +134,10 @@ export function usePantryItems(
   // Adding is only offered once loading succeeds, so a save never overwrites
   // stored items that have not been read yet.
   function addItem(draft: PantryItemDraft) {
-    if (statusRef.current !== 'ready') return;
+    if (statusRef.current !== 'ready' || !isValidPantryQuantity(draft.quantity)) return;
     const action: PantryAction = {
       id: nextActionId(), kind: 'add',
-      item: createPantryItem(draft.name, draft.expirationDate, draft.recipeIngredient),
+      item: createPantryItem(draft.name, draft.expirationDate, draft.recipeIngredient, new Date(), draft.quantity),
       undoable: false,
     };
     actionsRef.current = [...actionsRef.current, action];
@@ -139,15 +145,56 @@ export function usePantryItems(
     compactActions();
   }
 
-  function updateItem(id: string, draft: PantryItemDraft) {
-    if (statusRef.current !== 'ready') return null;
+  function updateItem(id: string, draft: PantryItemDraft, consumedUnits = 0) {
+    const isRecordedConsumption = isValidPantryQuantity(consumedUnits);
+    if (statusRef.current !== 'ready' ||
+      (!isRecordedConsumption && !isValidPantryQuantity(draft.quantity)) ||
+      (isRecordedConsumption && (!Number.isSafeInteger(draft.quantity) || draft.quantity < 0))) return null;
     const item = itemsRef.current.find((candidate) => candidate.id === id);
     if (!item) return null;
     const reference = item.recipeIngredient;
     const newReference = draft.recipeIngredient;
-    if (item.name === draft.name && item.expirationDate === draft.expirationDate &&
+    if (!isRecordedConsumption && item.name === draft.name && item.expirationDate === draft.expirationDate && item.quantity === draft.quantity &&
       reference?.provider === newReference?.provider && reference?.id === newReference?.id &&
       reference?.name === newReference?.name) return null;
+
+    if (isRecordedConsumption) {
+      const quantityBeforeConsumption = draft.quantity + consumedUnits;
+      if (!isValidPantryQuantity(quantityBeforeConsumption) || consumedUnits > quantityBeforeConsumption) return null;
+      const snapshot: PantryItem = {
+        ...item,
+        name: draft.name,
+        expirationDate: draft.expirationDate,
+        recipeIngredient: draft.recipeIngredient,
+        quantity: quantityBeforeConsumption,
+      };
+      const actionId = nextActionId();
+      const action: PantryAction = {
+        id: actionId,
+        kind: 'consume',
+        itemId: id,
+        amount: consumedUnits,
+        changes: {
+          name: draft.name,
+          expirationDate: draft.expirationDate,
+          recipeIngredient: draft.recipeIngredient,
+        },
+        quantityDelta: quantityBeforeConsumption - item.quantity,
+        undoable: true,
+      };
+      const event: PantryEvent = {
+        id: actionId,
+        pantryItemId: item.id,
+        itemName: draft.name,
+        outcome: 'consumed',
+        amount: consumedUnits,
+        occurredAt: new Date().toISOString(),
+        itemSnapshot: snapshot,
+      };
+      actionsRef.current = [...actionsRef.current, action];
+      saveState(replayPantryActions(baseRef.current, actionsRef.current), [...eventsRef.current, event], actionId);
+      return actionId;
+    }
 
     const action: PantryAction = {
       id: nextActionId(), kind: 'edit', itemId: id,
@@ -157,6 +204,7 @@ export function usePantryItems(
         ...(reference?.provider !== newReference?.provider || reference?.id !== newReference?.id ||
           reference?.name !== newReference?.name ? { recipeIngredient: newReference } : {}),
       },
+      quantityDelta: draft.quantity - item.quantity,
       undoable: true,
     };
     actionsRef.current = [...actionsRef.current, action];
@@ -164,21 +212,24 @@ export function usePantryItems(
     return action.id;
   }
 
-  function removeItemWithOutcome(id: string, outcome: PantryEventOutcome) {
-    if (statusRef.current !== 'ready' || !itemsRef.current.some((item) => item.id === id)) return null;
+  function removeItemWithOutcome(id: string, outcome: PantryEventOutcome, amount: number) {
+    if (statusRef.current !== 'ready' || !isValidPantryQuantity(amount)) return null;
+    const item = itemsRef.current.find((candidate) => candidate.id === id);
+    if (!item || amount > item.quantity) return null;
     const actionId = nextActionId();
     const action: PantryAction = {
       id: actionId,
       kind: outcome === 'consumed' ? 'consume' : 'waste',
       itemId: id,
+      amount,
       undoable: true,
     };
-    const item = itemsRef.current.find((candidate) => candidate.id === id)!;
     const event: PantryEvent = {
       id: actionId,
       pantryItemId: item.id,
       itemName: item.name,
       outcome,
+      amount,
       occurredAt: new Date().toISOString(),
       itemSnapshot: item,
     };
@@ -187,17 +238,17 @@ export function usePantryItems(
       replayPantryActions(baseRef.current, actionsRef.current),
       [...eventsRef.current, event],
       action.id,
-      true,
     );
     return action.id;
   }
 
-  function consumeItem(id: string) {
-    return removeItemWithOutcome(id, 'consumed');
+  function consumeItem(id: string, amount: number) {
+    return removeItemWithOutcome(id, 'consumed', amount);
   }
 
   function wasteItem(id: string) {
-    return removeItemWithOutcome(id, 'wasted');
+    const item = itemsRef.current.find((candidate) => candidate.id === id);
+    return item ? removeItemWithOutcome(id, 'wasted', item.quantity) : null;
   }
 
   /**
@@ -211,12 +262,12 @@ export function usePantryItems(
     if (statusRef.current !== 'ready') return false;
     const event = eventsRef.current.find((candidate) => candidate.id === id);
     if (!event?.itemSnapshot) return false;
-    if (itemsRef.current.some((item) => item.id === event.itemSnapshot!.id)) return false;
 
     const action: PantryAction = {
       id: nextActionId(),
       kind: 'restore',
       item: event.itemSnapshot,
+      amount: event.amount,
       undoable: false,
     };
     const nextEvents = eventsRef.current.filter((candidate) => candidate.id !== id);
@@ -225,7 +276,6 @@ export function usePantryItems(
       replayPantryActions(baseRef.current, actionsRef.current),
       nextEvents,
       action.id,
-      true,
     );
     compactActions();
     return true;
@@ -235,12 +285,11 @@ export function usePantryItems(
     const action = actionsRef.current.find((candidate) => candidate.id === id && candidate.undoable);
     if (!action) return false;
     actionsRef.current = actionsRef.current.filter((action) => action.id !== id);
-    const shouldSaveEvents = action.kind === 'consume' || action.kind === 'waste';
+    const shouldRemoveEvent = action.kind === 'consume' || action.kind === 'waste';
     saveState(
       replayPantryActions(baseRef.current, actionsRef.current),
-      shouldSaveEvents ? eventsRef.current.filter((event) => event.id !== id) : eventsRef.current,
+      shouldRemoveEvent ? eventsRef.current.filter((event) => event.id !== id) : eventsRef.current,
       nextActionId(),
-      shouldSaveEvents,
     );
     compactActions();
     return true;
@@ -259,3 +308,4 @@ export function usePantryItems(
     restoreEvent,
   };
 }
+

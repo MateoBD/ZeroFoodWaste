@@ -9,10 +9,12 @@ export type PantryEvent = Readonly<{
   pantryItemId: string;
   itemName: string;
   outcome: PantryEventOutcome;
+  /** The whole-unit amount represented by this outcome. */
+  amount: number;
   occurredAt: string;
   /**
-   * The item before it left the pantry. Older events do not have this field
-   * and can therefore be viewed but not restored.
+   * The item immediately before this outcome changed its quantity. Older
+   * events without a snapshot can be viewed but cannot be restored.
    */
   itemSnapshot?: PantryItem;
 }>;
